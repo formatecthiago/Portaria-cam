@@ -2,7 +2,7 @@ name: Build Android APK (Portaria)
 
 on:
   push:
-    branches: [ "portaria" ] # <-- ISOLADO: Só roda na branch portaria!
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -25,30 +25,26 @@ jobs:
           java-version: '17'
 
       - name: 4. Instalar Dependências
-        working-directory: ./Teste/Portaria
         run: |
           npm install
 
       - name: 5. Estruturar Pasta Web (www)
-        working-directory: ./Teste/Portaria
         run: |
           mkdir -p www
-          cp -r index.html bridge.js manifest.json icon-192.png www/ 2>/dev/null || true
+          cp -r index.html bridge.js manifest.json icon.svg www/ 2>/dev/null || true
 
       - name: 6. Adicionar e Sincronizar Plataforma Android
-        working-directory: ./Teste/Portaria
         run: |
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
       - name: 7. Injetar o Robô Nativo com Notificação (CallReceiver.java)
         run: |
-          # CORRIGIDO para bater exatamente com o appId: com.portaria.controle
-          JAVA_DIR="Teste/Portaria/android/app/src/main/java/com/portaria/controle"
+          JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
           cat << 'EOF' > "$JAVA_DIR/CallReceiver.java"
-          package com.portaria.controle;
+          package com.control.door.portaria;
 
           import android.app.NotificationChannel;
           import android.app.NotificationManager;
@@ -112,21 +108,20 @@ jobs:
 
       - name: 8. Configurar Permissões e o Receiver no AndroidManifest.xml
         run: |
-          MANIFEST_PATH=$(find Teste/Portaria/android -name AndroidManifest.xml | head -n 1)
+          MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
             sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' "$MANIFEST_PATH"
-            
             sed -i '/<\/application>/i \    <receiver android:name=".CallReceiver" android:exported="true">\n        <intent-filter>\n            <action android:name="android.intent.action.PHONE_STATE" />\n        </intent-filter>\n    </receiver>' "$MANIFEST_PATH"
           fi
 
       - name: 9. Copiar Google Services para o Android Nativo
         run: |
-          mkdir -p Teste/Portaria/android/app
-          cp Teste/Portaria/google-services.json Teste/Portaria/android/app/ 2>/dev/null || true
+          mkdir -p android/app
+          cp google-services.json android/app/ 2>/dev/null || true
 
       - name: 10. Gerar APK Debug
         run: |
-          GRADLEW_PATH=$(find Teste/Portaria/android -name gradlew)
+          GRADLEW_PATH=$(find android -name gradlew)
           GRADLE_DIR=$(dirname "$GRADLEW_PATH")
           cd "$GRADLE_DIR"
           chmod +x gradlew
