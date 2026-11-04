@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
@@ -55,9 +56,23 @@ public class CallService extends Service {
                     String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
                     if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
                         String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-                        Log.d(TAG, "Chamada detectada! Número: " + incomingNumber);
+                        if (incomingNumber == null) incomingNumber = "";
 
-                        triggerAlertNotification(context, incomingNumber);
+                        // Limpa o número que está chamando (deixa só os dígitos)
+                        String cleanIncoming = incomingNumber.replaceAll("\\D", "");
+
+                        // Lê o número alvo salvo no cofre nativo do Android
+                        SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
+                        String targetNumber = prefs.getString("numeroAlvo", "");
+                        String cleanTarget = targetNumber.replaceAll("\\D", "");
+
+                        Log.d(TAG, "Chamada de: " + cleanIncoming + " | Alvo esperado: " + cleanTarget);
+
+                        // Compara os números de forma segura
+                        if (!cleanTarget.isEmpty() && (cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming))) {
+                            Log.d(TAG, "SUCESSO! O número da portaria coincidiu. Disparando alerta...");
+                            triggerAlertNotification(context);
+                        }
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Erro ao interceptar chamada", e);
@@ -69,7 +84,7 @@ public class CallService extends Service {
         registerReceiver(callReceiver, filter);
     }
 
-    private void triggerAlertNotification(Context context, String number) {
+    private void triggerAlertNotification(Context context) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         String alertChannelId = "portaria_alert_channel";
 
@@ -87,12 +102,12 @@ public class CallService extends Service {
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, alertChannelId)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle("🚨 CHAMADA DA PORTARIA!")
-                .setContentText("Toque imediatamente para abrir o vídeo ao vivo.")
+                .setContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!")
+                .setContentText("Toque imediatamente para abrir a câmera ao vivo.")
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setAutoCancel(true)
-                .setFullScreenIntent(pendingIntent, true) // Força o Heads-up notification agressivo
+                .setFullScreenIntent(pendingIntent, true)
                 .setContentIntent(pendingIntent);
 
         manager.notify(9999, builder.build());
@@ -100,7 +115,7 @@ public class CallService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        return START_STICKY; // Garante que o Android reinicie o serviço se ele for morto
+        return START_STICKY;
     }
 
     @Override
@@ -109,7 +124,7 @@ public class CallService extends Service {
     }
 
     @Override
-    public void onDestroy() {
+    public onDestroy() {
         if (callReceiver != null) {
             unregisterReceiver(callReceiver);
         }
