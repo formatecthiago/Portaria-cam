@@ -67,7 +67,6 @@
             text-align: left;
         }
 
-        /* Caixa de Configuração e Permissões */
         .config-box {
             width: 100%;
             background: #2a2a2a;
@@ -82,7 +81,7 @@
 
         .config-box label {
             font-size: 0.75rem;
-            color: #ff6b81;
+            color: #00ff88;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-weight: bold;
@@ -191,12 +190,11 @@
 
         <h2>Portaria ao vivo</h2>
 
-        <!-- Caixa de Configuração e Solicitação de Permissão -->
         <div class="config-box">
-            <label>⚠️ 1. Defina o número e autorize o app:</label>
+            <label>Número da Portaria (Alvo):</label>
             <div class="config-row">
                 <input type="tel" id="inputNumero" placeholder="Ex: 84988509817">
-                <button onclick="salvarEPedirPermissoes()">Salvar & Permitir</button>
+                <button onclick="salvarNumeroPortaria()">Salvar</button>
             </div>
         </div>
 
@@ -224,30 +222,24 @@
             }
         });
 
-        async function salvarEPedirPermissoes() {
+        function salvarNumeroPortaria() {
             const novoNumero = document.getElementById('inputNumero').value.trim();
             if (!novoNumero) {
                 alert("Por favor, digite o número da portaria.");
                 return;
             }
             
-            // Salva o número localmente
+            // Salva no navegador
             localStorage.setItem('numeroPortariaAlvo', novoNumero);
 
-            // Dispara solicitação nativa de permissões se estiver rodando no Capacitor
-            try {
-                if (window.Capacitor && window.Capacitor.Plugins) {
-                    // Tenta abrir as configurações de permissão ou solicitar via plugin se disponível
-                    console.log("Solicitando permissões nativas ao sistema...");
-                }
-            } catch(e) {
-                console.log("Erro ao pedir permissões nativas", e);
+            // Tenta salvar nas Preferências Compartilhadas Nativas do Android via Bridge
+            if (window.PortariaBridge && typeof window.PortariaBridge.salvarNumero === 'function') {
+                window.PortariaBridge.salvarNumero(novoNumero);
             }
 
-            alert("Configurações salvas! O sistema está pronto.");
+            alert("Número salvo com sucesso e sincronizado com o sistema nativo!");
         }
 
-        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
@@ -331,11 +323,6 @@
 
         pipVideo.addEventListener('leavepictureinpicture', () => {
             btnPip.innerHTML = "📺 Ativar Janela Flutuante";
-        });
-
-        window.addEventListener('portariaChamando', () => {
-            console.log("Chamada identificada!");
-            togglePip();
         });
     </script>
 </body>
