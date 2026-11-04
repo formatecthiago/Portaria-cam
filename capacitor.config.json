@@ -1,17 +1,6 @@
 {
-  "appId": "com.portaria.controle",
-  "appName": "Portaria ao Vivo",
+  "appId": "com.control.door.portaria",
+  "appName": "Portaria",
   "webDir": "www",
-  "bundledWebRuntime": false,
-  "android": {
-    "permissions": [
-      "android.permission.READ_PHONE_STATE",
-      "android.permission.READ_CALL_LOG"
-    ]
-  },
-  "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 0
-    }
-  }
+  "bundledWebRuntime": false
 }
