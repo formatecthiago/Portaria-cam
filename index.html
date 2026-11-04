@@ -67,7 +67,6 @@
             text-align: left;
         }
 
-        /* Caixa de Configuração do Número */
         .config-box {
             width: 100%;
             background: #2a2a2a;
@@ -190,7 +189,6 @@
 
         <h2>Portaria ao vivo</h2>
 
-        <!-- Campo de Configuração do Número da Portaria para Testes -->
         <div class="config-box">
             <label for="inputNumero">Número da Portaria (Alvo):</label>
             <div class="config-row">
@@ -216,7 +214,6 @@
     </div>
 
     <script>
-        // Carrega o número salvo ao abrir a página
         window.addEventListener('DOMContentLoaded', () => {
             const numeroSalvo = localStorage.getItem('numeroPortariaAlvo') || "084988040811";
             document.getElementById('inputNumero').value = numeroSalvo;
@@ -232,7 +229,6 @@
             }
         }
 
-        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
@@ -251,7 +247,6 @@
 
         let timerRepouso = null;
 
-        // ISOLAMENTO DA BRAND: Escutando exclusivamente o nó 'portaria'
         database.ref('camera/stream/portaria').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.imagem) {
@@ -317,11 +312,6 @@
 
         pipVideo.addEventListener('leavepictureinpicture', () => {
             btnPip.innerHTML = "📺 Ativar Janela Flutuante";
-        });
-
-        window.addEventListener('portariaChamando', () => {
-            console.log("Chamada da portaria identificada pelo app nativo!");
-            togglePip();
         });
     </script>
 </body>
