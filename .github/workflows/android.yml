@@ -28,21 +28,113 @@ jobs:
         run: |
           npm install
 
-      - name: 5. Estruturar Pasta Web (www)
+      - name: 5. Criar bridge.js de Comunicação Nativa
+        run: |
+          cat << 'EOF' > bridge.js
+          window.PortariaBridge = {
+              salvarNumero: function(numero) {
+                  try {
+                      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PortariaPlugin) {
+                          window.Capacitor.Plugins.PortariaPlugin.salvarNumero({ numero: numero });
+                      }
+                  } catch (e) { console.error(e); }
+              },
+              testarAlerta: function() {
+                  try {
+                      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PortariaPlugin) {
+                          window.Capacitor.Plugins.PortariaPlugin.testarAlerta();
+                      }
+                  } catch (e) { console.error(e); }
+              }
+          };
+          EOF
+
+      - name: 6. Estruturar Pasta Web (www)
         run: |
           mkdir -p www
           cp -r index.html bridge.js manifest.json icon.svg www/ 2>/dev/null || true
 
-      - name: 6. Adicionar e Sincronizar Plataforma Android
+      - name: 7. Adicionar e Sincronizar Plataforma Android
         run: |
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 7. Injetar o Serviço Nativo Inteligente (CallService.java)
+      - name: 8. Injetar Código Nativo (MainActivity.java e CallService.java)
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
+          # Injeta MainActivity forçando permissões
+          cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
+          package com.control.door.portaria;
+
+          import android.Manifest;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import com.getcapacitor.BridgeActivity;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.JSObject;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  registerPlugin(PortariaPlugin.class);
+                  solicitarPermissoesAgressivas();
+                  iniciarServicoBackground();
+              }
+
+              private void solicitarPermissoesAgressivas() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                      String[] permissoes = {
+                          Manifest.permission.READ_PHONE_STATE,
+                          Manifest.permission.READ_CALL_LOG,
+                          Manifest.permission.POST_NOTIFICATIONS
+                      };
+                      ActivityCompat.requestPermissions(this, permissoes, 101);
+                  }
+              }
+
+              private void iniciarServicoBackground() {
+                  Intent serviceIntent = new Intent(this, CallService.class);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      startForegroundService(serviceIntent);
+                  } else {
+                      startService(serviceIntent);
+                  }
+              }
+          }
+
+          @CapacitorPlugin(name = "PortariaPlugin")
+          class PortariaPlugin extends Plugin {
+              @PluginMethod
+              public void salvarNumero(PluginCall call) {
+                  String numero = call.getString("numero");
+                  SharedPreferences prefs = getContext().getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
+                  prefs.edit().putString("numeroAlvo", numero).apply();
+                  call.resolve();
+              }
+
+              @PluginMethod
+              public void testarAlerta(PluginCall call) {
+                  Intent intent = new Intent(getContext(), CallService.class);
+                  intent.setAction("TEST_ALERT");
+                  getContext().startService(intent);
+                  call.resolve();
+              }
+          }
+          EOF
+
+          # Injeta CallService com suporte ao teste manual e Foreground visível
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -99,32 +191,41 @@ jobs:
                       @Override
                       public void onReceive(Context context, Intent intent) {
                           try {
-                              String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-                              if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
-                                  String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-                                  if (incomingNumber == null) incomingNumber = "";
+                              String action = intent.getAction();
+                              if (TelephonyManager.ACTION_PHONE_STATE_CHANGED.equals(action)) {
+                                  String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
+                                  if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
+                                      String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
+                                      if (incomingNumber == null) incomingNumber = "";
 
-                                  String cleanIncoming = incomingNumber.replaceAll("\\D", "");
+                                      String cleanIncoming = incomingNumber.replaceAll("\\D", "");
 
-                                  SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
-                                  String targetNumber = prefs.getString("numeroAlvo", "");
-                                  String cleanTarget = targetNumber.replaceAll("\\D", "");
+                                      SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
+                                      String targetNumber = prefs.getString("numeroAlvo", "");
+                                      String cleanTarget = targetNumber.replaceAll("\\D", "");
 
-                                  Log.d(TAG, "Chamada de: " + cleanIncoming + " | Alvo esperado: " + cleanTarget);
-
-                                  if (!cleanTarget.isEmpty() && (cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming))) {
-                                      Log.d(TAG, "SUCESSO! O número da portaria coincidiu. Disparando alerta...");
-                                      triggerAlertNotification(context);
+                                      if (!cleanTarget.isEmpty() && (cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming))) {
+                                          triggerAlertNotification(context);
+                                      }
                                   }
                               }
                           } catch (Exception e) {
-                              Log.e(TAG, "Erro ao interceptar chamada", e);
+                              Log.e(TAG, "Erro", e);
                           }
                       }
                   };
 
-                  IntentFilter filter = new IntentFilter(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
+                  IntentFilter filter = new IntentFilter();
+                  filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
                   registerReceiver(callReceiver, filter);
+              }
+
+              @Override
+              public int onStartCommand(Intent intent, int flags, int startId) {
+                  if (intent != null && "TEST_ALERT".equals(intent.getAction())) {
+                      triggerAlertNotification(this);
+                  }
+                  return START_STICKY;
               }
 
               private void triggerAlertNotification(Context context) {
@@ -145,8 +246,8 @@ jobs:
 
                   NotificationCompat.Builder builder = new NotificationCompat.Builder(context, alertChannelId)
                           .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                          .setContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!")
-                          .setContentText("Toque imediatamente para abrir a câmera ao vivo.")
+                          .setContentTitle("🚨 CHAMADA DA PORTARIA!")
+                          .setContentText("Toque para abrir a câmera ao vivo.")
                           .setPriority(NotificationCompat.PRIORITY_MAX)
                           .setCategory(NotificationCompat.CATEGORY_CALL)
                           .setAutoCancel(true)
@@ -157,26 +258,17 @@ jobs:
               }
 
               @Override
-              public int onStartCommand(Intent intent, int flags, int startId) {
-                  return START_STICKY;
-              }
-
-              @Override
-              public IBinder onBind(Intent intent) {
-                  return null;
-              }
+              public IBinder onBind(Intent intent) { return null; }
 
               @Override
               public void onDestroy() {
-                  if (callReceiver != null) {
-                      unregisterReceiver(callReceiver);
-                  }
+                  if (callReceiver != null) { unregisterReceiver(callReceiver); }
                   super.onDestroy();
               }
           }
           EOF
 
-      - name: 8. Configurar Permissões e o Serviço no AndroidManifest.xml
+      - name: 9. Configurar Permissões e o Serviço no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
@@ -184,12 +276,12 @@ jobs:
             sed -i '/<\/application>/i \    <service android:name=".CallService" android:exported="false" android:foregroundServiceType="phoneCall" />' "$MANIFEST_PATH"
           fi
 
-      - name: 9. Copiar Google Services para o Android Nativo
+      - name: 10. Copiar Google Services para o Android Nativo
         run: |
           mkdir -p android/app
           cp google-services.json android/app/ 2>/dev/null || true
 
-      - name: 10. Gerar APK Debug
+      - name: 11. Gerar APK Debug
         run: |
           GRADLEW_PATH=$(find android -name gradlew)
           GRADLE_DIR=$(dirname "$GRADLEW_PATH")
@@ -197,7 +289,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: 11. Disponibilizar APK para Download
+      - name: 12. Disponibilizar APK para Download
         uses: actions/upload-artifact@v4
         with:
           name: Portaria-APK
