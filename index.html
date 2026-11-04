@@ -115,13 +115,12 @@
 
         .config-row button:active { transform: scale(0.95); }
 
-        /* Estilo do Botão HTML de Teste */
         .btn-test {
             width: 100%;
             background: #007bff;
             color: #fff;
             border: none;
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             font-weight: bold;
             font-size: 0.85rem;
@@ -148,7 +147,6 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            image-rendering: -webkit-optimize-contrast;
             display: block;
         }
 
@@ -214,13 +212,12 @@
             </div>
         </div>
 
-        <!-- Botão HTML de Teste de Diagnóstico -->
         <button class="btn-test" onclick="testarAlertaManual()">
             🧪 Testar Notificação de Chamada Agora
         </button>
 
         <div class="video-wrapper">
-            <img id="frameImg" src="https://picsum.photos/400/225" alt="Buscando sinal da portaria...">
+            <img id="frameImg" src="https://picsum.photos/400/225" alt="Aguardando sinal...">
             <canvas id="pipCanvas" width="400" height="225"></canvas>
             <video id="pipVideo" autoplay playsinline muted></video>
         </div>
@@ -263,7 +260,7 @@
             if (window.PortariaBridge && typeof window.PortariaBridge.testarAlerta === 'function') {
                 window.PortariaBridge.testarAlerta();
             } else {
-                alert("Simulação: O comando de teste será executado no app nativo.");
+                alert("Simulação web: O teste nativo funcionará no APK gerado.");
             }
         }
 
@@ -272,7 +269,9 @@
             databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
         };
 
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const database = firebase.database();
 
         const frameImg = document.getElementById('frameImg');
@@ -285,7 +284,7 @@
 
         let timerRepouso = null;
 
-        database.ref('camera/stream/portaria').on('value', (snapshot) => {
+        database.ref('camera/stream').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.imagem) {
                 frameImg.src = data.imagem;
@@ -296,7 +295,7 @@
                 clearTimeout(timerRepouso);
                 timerRepouso = setTimeout(() => {
                     marcarComoInativo();
-                }, 1500);
+                }, 2000);
             } else {
                 marcarComoInativo();
             }
@@ -305,13 +304,13 @@
         function marcarComoInativo() {
             statusTxt.textContent = "Portaria: Sem sinal / Repouso";
             statusDot.className = "status-dot repouso";
-            frameImg.src = "https://picsum.photos/400/225";
         }
 
         function atualizarCanvas() {
             const img = new Image();
+            img.crossOrigin = "anonymous";
             img.onload = () => {
-                ctx.imageSmoothingEnabled = true;
+                ctx.clearRect(0, 0, pipCanvas.width, pipCanvas.height);
                 ctx.drawImage(img, 0, 0, pipCanvas.width, pipCanvas.height);
             };
             img.src = frameImg.src;
@@ -329,7 +328,7 @@
                     await pipVideo.requestPictureInPicture();
                 }
             } catch (err) {
-                alert("O navegador não suporta a janela flutuante ou é necessária uma interação.");
+                alert("Erro ao ativar Janela Flutuante (PiP): " + err.message);
             }
         }
 
@@ -337,9 +336,7 @@
             if (document.pictureInPictureElement) {
                 try {
                     await document.exitPictureInPicture();
-                } catch (e) {
-                    console.log("Flutuante encerrado.");
-                }
+                } catch (e) {}
             }
             window.location.href = "https://www.google.com";
         }
@@ -350,6 +347,10 @@
 
         pipVideo.addEventListener('leavepictureinpicture', () => {
             btnPip.innerHTML = "📺 Ativar Janela Flutuante";
+        });
+
+        window.addEventListener('portariaChamando', () => {
+            togglePip();
         });
     </script>
 </body>
