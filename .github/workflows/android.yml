@@ -54,17 +54,17 @@ jobs:
           mkdir -p www
           cp -r index.html bridge.js manifest.json icon.svg www/ 2>/dev/null || true
 
-      - name: 7. Adicionar e Sincronizar Plataforma Android
+      - name: 7. Sincronizar Plataforma Android
         run: |
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo (MainActivity.java e CallService.java)
+      - name: 8. Injetar Código Nativo com Inteligência de Chamadas
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # Injeta MainActivity forçando permissões
+          # Injeta MainActivity forçando permissões e inicialização do serviço
           cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
           package com.control.door.portaria;
 
@@ -72,14 +72,11 @@ jobs:
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
-          import android.content.pm.PackageManager;
           import android.os.Build;
           import android.os.Bundle;
           import androidx.core.app.ActivityCompat;
-          import androidx.core.content.ContextCompat;
           import com.getcapacitor.BridgeActivity;
           import com.getcapacitor.Plugin;
-          import com.getcapacitor.JSObject;
           import com.getcapacitor.PluginCall;
           import com.getcapacitor.PluginMethod;
           import com.getcapacitor.annotation.CapacitorPlugin;
@@ -134,7 +131,7 @@ jobs:
           }
           EOF
 
-          # Injeta CallService com suporte ao teste manual e Foreground visível
+          # Injeta CallService com Normalização e Comparação Inteligente de Telefones
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -198,19 +195,33 @@ jobs:
                                       String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
                                       if (incomingNumber == null) incomingNumber = "";
 
+                                      // Limpeza total de caracteres especiais (deixa apenas números)
                                       String cleanIncoming = incomingNumber.replaceAll("\\D", "");
 
                                       SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
                                       String targetNumber = prefs.getString("numeroAlvo", "");
                                       String cleanTarget = targetNumber.replaceAll("\\D", "");
 
-                                      if (!cleanTarget.isEmpty() && (cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming))) {
-                                          triggerAlertNotification(context);
+                                      Log.d(TAG, "Chamada recebida limpa: " + cleanIncoming + " | Alvo cadastrado: " + cleanTarget);
+
+                                      if (!cleanTarget.isEmpty() && !cleanIncoming.isEmpty()) {
+                                          // 1. Verificação de correspondência exata ou parcial direta
+                                          boolean matchExato = cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming);
+                                          
+                                          // 2. Verificação inteligente pelos últimos 8 dígitos (ignora DDI +55 e DDDs variáveis)
+                                          String subIncoming = cleanIncoming.length() >= 8 ? cleanIncoming.substring(cleanIncoming.length() - 8) : cleanIncoming;
+                                          String subTarget = cleanTarget.length() >= 8 ? cleanTarget.substring(cleanTarget.length() - 8) : cleanTarget;
+                                          boolean matchParcial = subIncoming.equals(subTarget);
+
+                                          if (matchExato || matchParcial) {
+                                              Log.d(TAG, "SUCESSO! Chamada da portaria identificada com inteligência.");
+                                              triggerAlertNotification(context);
+                                          }
                                       }
                                   }
                               }
                           } catch (Exception e) {
-                              Log.e(TAG, "Erro", e);
+                              Log.e(TAG, "Erro no BroadcastReceiver", e);
                           }
                       }
                   };
