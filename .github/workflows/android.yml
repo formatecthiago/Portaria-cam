@@ -59,12 +59,12 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com Canal Blindado no Topo do Serviço
+      - name: 8. Injetar Código Nativo com FullScreenIntent Absoluto
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # MainActivity.java
+          # MainActivity.java com flags para acordar a tela e mostrar sobre a lockscreen
           cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
           package com.control.door.portaria;
 
@@ -74,6 +74,7 @@ jobs:
           import android.content.SharedPreferences;
           import android.os.Build;
           import android.os.Bundle;
+          import android.view.WindowManager;
           import android.webkit.JavascriptInterface;
           import android.webkit.WebView;
           import androidx.core.app.ActivityCompat;
@@ -83,6 +84,14 @@ jobs:
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+                  
+                  // Força a activity a aparecer mesmo com a tela bloqueada
+                  getWindow().addFlags(
+                      WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                      WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+                      WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                  );
+
                   solicitarPermissoesAgressivas();
                   iniciarServicoBackground();
                   configurarBridgeNativa();
@@ -137,24 +146,13 @@ jobs:
                   intent.setAction("TEST_ALERT");
                   mContext.startService(intent);
 
-                  // Auditoria em tempo real na tela informando o status exato do canal
-                  android.app.NotificationManager manager = (android.app.NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-                  String statusCanal = "NÃO ENCONTRADO";
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      android.app.NotificationChannel ch = manager.getNotificationChannel("portaria_alert_channel_definitivo");
-                      if (ch != null) {
-                          statusCanal = "OK (Importância: " + ch.getImportance() + ")";
-                      }
-                  }
-
-                  final String msgLog = "--- AUDITORIA NATIVA ---\\nCanal Status: " + statusCanal + "\\nComando de alerta executado.";
-                  String script = "if(typeof logMsg === 'function'){ logMsg('" + msgLog + "'); }";
+                  String script = "if(typeof logMsg === 'function'){ logMsg('Disparo de alerta em tela cheia acionado.'); }";
                   mWebView.post(() -> mWebView.evaluateJavascript(script, null));
               }
           }
           EOF
 
-          # CallService.java com criação imediata e síncrona de canais
+          # CallService.java com FullScreenIntent forçado e Prioridade Máxima
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -177,40 +175,38 @@ jobs:
           public class CallService extends Service {
               private static final String TAG = "CallServiceDebug";
               private static final String SERVICE_CHANNEL_ID = "portaria_service_channel";
-              public static final String ALERT_CHANNEL_ID = "portaria_alert_channel_definitivo";
+              public static final String ALERT_CHANNEL_ID = "portaria_alert_channel_master";
               private BroadcastReceiver callReceiver;
 
               @Override
               public void onCreate() {
                   super.onCreate();
-                  
-                  // CRIAÇÃO IMEDIATA DOS CANAIS ANTES DE QUALQUER OUTRA COISA
-                  criarCanaisForcado(this);
-
+                  criarCanalMaster(this);
                   startForegroundServiceCustom();
                   registerCallReceiver();
               }
 
-              public static void criarCanaisForcado(Context context) {
+              public static void criarCanalMaster(Context context) {
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                       
                       // Canal de Serviço
                       NotificationChannel serviceChannel = new NotificationChannel(
                           SERVICE_CHANNEL_ID, 
-                          "Serviço Ativo da Portaria", 
+                          "Serviço Ativo", 
                           NotificationManager.IMPORTANCE_LOW
                       );
                       manager.createNotificationChannel(serviceChannel);
 
-                      // Canal de Alerta Urgente (Força Importância Alta)
+                      // Canal Master de Alta Prioridade com Bypass de Silencioso
                       NotificationChannel alertChannel = new NotificationChannel(
                           ALERT_CHANNEL_ID, 
                           "Alerta Urgente da Portaria", 
                           NotificationManager.IMPORTANCE_HIGH
                       );
-                      alertChannel.setDescription("Canal de alta prioridade para chamadas");
+                      alertChannel.setDescription("Canal de chamadas prioritárias");
                       alertChannel.enableVibration(true);
+                      alertChannel.setBypassDnd(true);
                       manager.createNotificationChannel(alertChannel);
                   }
               }
@@ -267,9 +263,7 @@ jobs:
 
               @Override
               public int onStartCommand(Intent intent, int flags, int startId) {
-                  // Garante a recriação preventiva ao receber qualquer comando
-                  criarCanaisForcado(this);
-
+                  criarCanalMaster(this);
                   if (intent != null && "TEST_ALERT".equals(intent.getAction())) {
                       triggerAlertNotification(this);
                   }
@@ -278,27 +272,27 @@ jobs:
 
               private void triggerAlertNotification(Context context) {
                   NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                  
-                  // Assegura que o canal existe no microssegundo do disparo
-                  criarCanaisForcado(context);
+                  criarCanalMaster(context);
 
+                  // Intent para abrir o MainActivity com flags de urgência máxima
                   Intent intent = new Intent(context, MainActivity.class);
-                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                  PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                  PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
                   NotificationCompat.Builder builder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
                           .setSmallIcon(android.R.drawable.ic_menu_camera)
                           .setContentTitle("🚨 CHAMADA DA PORTARIA!")
                           .setContentText("Toque para ver a câmera ao vivo.")
-                          .setPriority(NotificationCompat.PRIORITY_HIGH)
+                          .setPriority(NotificationCompat.PRIORITY_MAX)
                           .setCategory(NotificationCompat.CATEGORY_CALL)
+                          .setFullScreenIntent(pendingIntent, true) // FORÇA O POP-UP EM TELA CHEIA / HEADS-UP
                           .setAutoCancel(true)
                           .setDefaults(NotificationCompat.DEFAULT_ALL)
                           .setContentIntent(pendingIntent)
                           .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
                   manager.notify(9999, builder.build());
-                  Log.d(TAG, "Notificação despachada com sucesso.");
+                  Log.d(TAG, "Notificação FullScreenIntent disparada.");
               }
 
               @Override
@@ -312,11 +306,11 @@ jobs:
           }
           EOF
 
-      - name: 9. Configurar Permissões e Serviço no AndroidManifest.xml
+      - name: 9. Configurar Permissões Críticas no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST_PATH"
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />' "$MANIFEST_PATH"
             sed -i '/<\/application>/i \    <service android:name=".CallService" android:exported="false" android:foregroundServiceType="phoneCall" />' "$MANIFEST_PATH"
           fi
 
