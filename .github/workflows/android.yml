@@ -59,12 +59,12 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com Inteligência de Chamadas
+      - name: 8. Injetar Código Nativo (Notificação Flutuante e Comparação Inteligente)
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # Injeta MainActivity forçando permissões e inicialização do serviço
+          # MainActivity.java
           cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
           package com.control.door.portaria;
 
@@ -131,7 +131,7 @@ jobs:
           }
           EOF
 
-          # Injeta CallService com Normalização e Comparação Inteligente de Telefones
+          # CallService.java com Notificação Heads-up (Flutuante de Alta Prioridade)
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -195,26 +195,23 @@ jobs:
                                       String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
                                       if (incomingNumber == null) incomingNumber = "";
 
-                                      // Limpeza total de caracteres especiais (deixa apenas números)
                                       String cleanIncoming = incomingNumber.replaceAll("\\D", "");
 
                                       SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
                                       String targetNumber = prefs.getString("numeroAlvo", "");
                                       String cleanTarget = targetNumber.replaceAll("\\D", "");
 
-                                      Log.d(TAG, "Chamada recebida limpa: " + cleanIncoming + " | Alvo cadastrado: " + cleanTarget);
+                                      Log.d(TAG, "Chamada recebida: " + cleanIncoming + " | Alvo: " + cleanTarget);
 
                                       if (!cleanTarget.isEmpty() && !cleanIncoming.isEmpty()) {
-                                          // 1. Verificação de correspondência exata ou parcial direta
                                           boolean matchExato = cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming);
                                           
-                                          // 2. Verificação inteligente pelos últimos 8 dígitos (ignora DDI +55 e DDDs variáveis)
                                           String subIncoming = cleanIncoming.length() >= 8 ? cleanIncoming.substring(cleanIncoming.length() - 8) : cleanIncoming;
                                           String subTarget = cleanTarget.length() >= 8 ? cleanTarget.substring(cleanTarget.length() - 8) : cleanTarget;
                                           boolean matchParcial = subIncoming.equals(subTarget);
 
                                           if (matchExato || matchParcial) {
-                                              Log.d(TAG, "SUCESSO! Chamada da portaria identificada com inteligência.");
+                                              Log.d(TAG, "SUCESSO! Chamada da portaria identificada.");
                                               triggerAlertNotification(context);
                                           }
                                       }
@@ -244,8 +241,11 @@ jobs:
                   String alertChannelId = "portaria_alert_channel";
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationChannel channel = new NotificationChannel(alertChannelId, "Alerta Urgente de Chamada", NotificationManager.IMPORTANCE_HIGH);
-                      channel.setBypassDnd(true);
+                      NotificationChannel channel = new NotificationChannel(
+                          alertChannelId, 
+                          "Chamada da Portaria", 
+                          NotificationManager.IMPORTANCE_HIGH
+                      );
                       manager.createNotificationChannel(channel);
                   }
 
@@ -256,14 +256,14 @@ jobs:
                   PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
 
                   NotificationCompat.Builder builder = new NotificationCompat.Builder(context, alertChannelId)
-                          .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                          .setContentTitle("🚨 CHAMADA DA PORTARIA!")
-                          .setContentText("Toque para abrir a câmera ao vivo.")
-                          .setPriority(NotificationCompat.PRIORITY_MAX)
+                          .setSmallIcon(android.R.drawable.ic_menu_camera)
+                          .setContentTitle("🚨 Chamada da Portaria Detectada!")
+                          .setContentText("Toque para ver a câmera ao vivo.")
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
                           .setCategory(NotificationCompat.CATEGORY_CALL)
                           .setAutoCancel(true)
-                          .setFullScreenIntent(pendingIntent, true)
-                          .setContentIntent(pendingIntent);
+                          .setContentIntent(pendingIntent)
+                          .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
                   manager.notify(9999, builder.build());
               }
@@ -279,11 +279,11 @@ jobs:
           }
           EOF
 
-      - name: 9. Configurar Permissões e o Serviço no AndroidManifest.xml
+      - name: 9. Configurar Permissões e Serviço no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST_PATH"
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST_PATH"
             sed -i '/<\/application>/i \    <service android:name=".CallService" android:exported="false" android:foregroundServiceType="phoneCall" />' "$MANIFEST_PATH"
           fi
 
