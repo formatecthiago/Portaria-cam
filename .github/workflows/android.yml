@@ -28,7 +28,7 @@ jobs:
         run: |
           npm install
 
-      - name: 5. Criar bridge.js com Retorno de Log na Tela
+      - name: 5. Criar bridge.js com Gatilho de Ativação e Teste
         run: |
           cat << 'EOF' > bridge.js
           window.PortariaBridge = {
@@ -36,6 +36,13 @@ jobs:
                   try {
                       if (window.AndroidInterface && typeof window.AndroidInterface.salvarNumero === 'function') {
                           window.AndroidInterface.salvarNumero(numero);
+                      }
+                  } catch (e) { console.error(e); }
+              },
+              ativarServico: function() {
+                  try {
+                      if (window.AndroidInterface && typeof window.AndroidInterface.ativarServico === 'function') {
+                          window.AndroidInterface.ativarServico();
                       }
                   } catch (e) { console.error(e); }
               },
@@ -59,7 +66,7 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com Notificação Padrão de Segundo Plano e Auditoria
+      - name: 8. Injetar Código Nativo com Gatilho Voluntário (Ativação Limpa)
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
@@ -72,19 +79,19 @@ jobs:
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
           import android.os.Build;
           import android.os.Bundle;
           import android.webkit.JavascriptInterface;
           import android.webkit.WebView;
           import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  solicitarPermissoesAgressivas();
-                  iniciarServicoBackground();
                   configurarBridgeNativa();
               }
 
@@ -92,26 +99,6 @@ jobs:
                   if (this.bridge != null && this.bridge.getWebView() != null) {
                       this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);
                       this.bridge.getWebView().addJavascriptInterface(new WebAppInterface(this, this.bridge.getWebView()), "AndroidInterface");
-                  }
-              }
-
-              private void solicitarPermissoesAgressivas() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                      String[] permissoes = {
-                          Manifest.permission.READ_PHONE_STATE,
-                          Manifest.permission.READ_CALL_LOG,
-                          Manifest.permission.POST_NOTIFICATIONS
-                      };
-                      ActivityCompat.requestPermissions(this, permissoes, 101);
-                  }
-              }
-
-              private void iniciarServicoBackground() {
-                  Intent serviceIntent = new Intent(this, CallService.class);
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      startForegroundService(serviceIntent);
-                  } else {
-                      startService(serviceIntent);
                   }
               }
           }
@@ -132,29 +119,34 @@ jobs:
               }
 
               @JavascriptInterface
+              public void ativarServico() {
+                  // Solicita permissões de forma limpa através da Activity via Intent ou execução direta
+                  Intent serviceIntent = new Intent(mContext, CallService.class);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      mContext.startForegroundService(serviceIntent);
+                  } else {
+                      mContext.startService(serviceIntent);
+                  }
+
+                  final String msgLog = "--- SISTEMA ---\\nServiço de portaria ativado com sucesso!";
+                  String script = "if(typeof logMsg === 'function'){ logMsg('" + msgLog + "'); }";
+                  mWebView.post(() -> mWebView.evaluateJavascript(script, null));
+              }
+
+              @JavascriptInterface
               public void testarAlerta() {
                   Intent intent = new Intent(mContext, CallService.class);
                   intent.setAction("TEST_ALERT");
                   mContext.startService(intent);
 
-                  // INSPETOR VISUAL: Retorna o status real do canal de notificação para a tela
-                  android.app.NotificationManager manager = (android.app.NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-                  String statusCanal = "NÃO ENCONTRADO";
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      android.app.NotificationChannel ch = manager.getNotificationChannel(CallService.ALERT_CHANNEL_ID);
-                      if (ch != null) {
-                          statusCanal = "OK (Importância: " + ch.getImportance() + ")";
-                      }
-                  }
-
-                  final String msgLog = "--- AUDITORIA NATIVA ---\\nCanal Status: " + statusCanal + "\\nAlerta disparado na gaveta.";
+                  final String msgLog = "--- AUDITORIA NATIVA ---\\nComando de teste de alarme enviado.";
                   String script = "if(typeof logMsg === 'function'){ logMsg('" + msgLog + "'); }";
                   mWebView.post(() -> mWebView.evaluateJavascript(script, null));
               }
           }
           EOF
 
-          # CallService.java com Notificação Padrão de Segundo Plano
+          # CallService.java com estrutura limpa e padrão
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -176,8 +168,8 @@ jobs:
 
           public class CallService extends Service {
               private static final String TAG = "CallServiceDebug";
-              private static final String SERVICE_CHANNEL_ID = "portaria_service_channel";
-              public static final String ALERT_CHANNEL_ID = "portaria_alert_channel_padrao";
+              private static final String SERVICE_CHANNEL_ID = "portaria_service_channel_clean";
+              public static final String ALERT_CHANNEL_ID = "portaria_alert_channel_clean";
               private BroadcastReceiver callReceiver;
 
               @Override
@@ -192,7 +184,7 @@ jobs:
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                       
-                      // Canal do Serviço Fixo
+                      // Canal de Serviço
                       NotificationChannel serviceChannel = new NotificationChannel(
                           SERVICE_CHANNEL_ID, 
                           "Serviço Ativo da Portaria", 
@@ -200,13 +192,13 @@ jobs:
                       );
                       manager.createNotificationChannel(serviceChannel);
 
-                      // Canal de Alerta Padrão (Garante prioridade alta aceita pelo Android)
+                      // Canal de Alerta
                       NotificationChannel alertChannel = new NotificationChannel(
                           ALERT_CHANNEL_ID, 
-                          "Chamadas da Portaria", 
+                          "Alerta de Chamadas da Portaria", 
                           NotificationManager.IMPORTANCE_HIGH
                       );
-                      alertChannel.setDescription("Notificações de chamadas recebidas");
+                      alertChannel.setDescription("Notificações prioritárias de chamadas");
                       alertChannel.enableVibration(true);
                       manager.createNotificationChannel(alertChannel);
                   }
@@ -217,7 +209,7 @@ jobs:
                   PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
                   Notification notification = new NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
-                          .setContentTitle("Portaria Protegida")
+                          .setContentTitle("Portaria Ativa")
                           .setContentText("Monitorando chamadas...")
                           .setSmallIcon(android.R.drawable.ic_menu_camera)
                           .setContentIntent(pendingIntent)
@@ -275,7 +267,6 @@ jobs:
                   NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                   criarCanais(context);
 
-                  // Intent para abrir o app ao tocar na notificação
                   Intent intent = new Intent(context, MainActivity.class);
                   intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                   PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
@@ -290,8 +281,8 @@ jobs:
                           .setContentIntent(pendingIntent)
                           .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
-                  manager.notify(9999, builder.build());
-                  Log.d(TAG, "Notificação padrão de segundo plano enviada com sucesso.");
+                  manager.notify(7777, builder.build());
+                  Log.d(TAG, "Notificação de alerta disparada com sucesso.");
               }
 
               @Override
