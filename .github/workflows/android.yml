@@ -28,7 +28,7 @@ jobs:
         run: |
           npm install
 
-      - name: 5. Criar bridge.js de Comunicação com o WebView
+      - name: 5. Criar bridge.js com Retorno de Diagnóstico
         run: |
           cat << 'EOF' > bridge.js
           window.PortariaBridge = {
@@ -59,7 +59,7 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com FullScreenIntent Avançado
+      - name: 8. Injetar Código Nativo com Inspetor de Diagnóstico para Tela
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
@@ -69,28 +69,24 @@ jobs:
           package com.control.door.portaria;
 
           import android.Manifest;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
           import android.os.Build;
           import android.os.Bundle;
-          import android.view.WindowManager;
           import android.webkit.JavascriptInterface;
+          import android.webkit.WebView;
           import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  
-                  // Permite que a activity aparezca sobre a tela de bloqueio
-                  getWindow().addFlags(
-                      WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-                      WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
-                      WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                  );
-
                   solicitarPermissoesAgressivas();
                   iniciarServicoBackground();
                   configurarBridgeNativa();
@@ -99,7 +95,7 @@ jobs:
               private void configurarBridgeNativa() {
                   if (this.bridge != null && this.bridge.getWebView() != null) {
                       this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);
-                      this.bridge.getWebView().addJavascriptInterface(new WebAppInterface(this), "AndroidInterface");
+                      this.bridge.getWebView().addJavascriptInterface(new WebAppInterface(this, this.bridge.getWebView()), "AndroidInterface");
                   }
               }
 
@@ -126,9 +122,11 @@ jobs:
 
           class WebAppInterface {
               Context mContext;
+              WebView mWebView;
 
-              WebAppInterface(Context c) {
+              WebAppInterface(Context c, WebView w) {
                   mContext = c;
+                  mWebView = w;
               }
 
               @JavascriptInterface
@@ -139,14 +137,44 @@ jobs:
 
               @JavascriptInterface
               public void testarAlerta() {
+                  // Executa o disparo do alerta
                   Intent intent = new Intent(mContext, CallService.class);
                   intent.setAction("TEST_ALERT");
                   mContext.startService(intent);
+
+                  // INSPETOR CIENTÍFICO: Coleta o estado real do sistema e joga na tela de log
+                  StringBuilder relatorio = new StringBuilder();
+                  relatorio.append("--- AUDITORIA NATIVA ---\\n");
+
+                  // 1. Verifica Permissão de Notificação
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      boolean permPost = ContextCompat.checkSelfPermission(mContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+                      relatorio.append("Permissão POST_NOTIFICATIONS: ").append(permPost).append("\\n");
+                  } else {
+                      relatorio.append("Permissão POST_NOTIFICATIONS: N/A (Android < 13)\\n");
+                  }
+
+                  // 2. Verifica Estado do Canal de Notificação
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      NotificationManager manager = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+                      NotificationChannel channel = manager.getNotificationChannel("portaria_alert_channel_debug");
+                      if (channel != null) {
+                          relatorio.append("Canal ID: OK | Importância: ").append(channel.getImportance()).append("\\n");
+                      } else {
+                          relatorio.append("Canal ID: NÃO CRIADO/REJEITADO\\n");
+                      }
+                  }
+
+                  relatorio.append("Comando de alerta executado pelo Java.");
+
+                  // Envia o texto de volta para a função JS de log na tela
+                  String script = "if(typeof logMsg === 'function'){ logMsg('" + relatorio.toString().replace("\\n", "\\n") + "'); }";
+                  mWebView.post(() -> mWebView.evaluateJavascript(script, null));
               }
           }
           EOF
 
-          # CallService.java com FullScreenIntent e Alta Prioridade de Chamada
+          # CallService.java
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -190,7 +218,7 @@ jobs:
 
                   Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                           .setContentTitle("Portaria Protegida")
-                          .setContentText("Monitorando chamadas em segundo plano...")
+                          .setContentText("Monitorando chamadas...")
                           .setSmallIcon(android.R.drawable.ic_menu_camera)
                           .setContentIntent(pendingIntent)
                           .build();
@@ -209,7 +237,6 @@ jobs:
                                   if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
                                       String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
                                       if (incomingNumber == null) incomingNumber = "";
-
                                       String cleanIncoming = incomingNumber.replaceAll("\\D", "");
 
                                       SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
@@ -218,12 +245,7 @@ jobs:
 
                                       if (!cleanTarget.isEmpty() && !cleanIncoming.isEmpty()) {
                                           boolean matchExato = cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming);
-                                          
-                                          String subIncoming = cleanIncoming.length() >= 8 ? cleanIncoming.substring(cleanIncoming.length() - 8) : cleanIncoming;
-                                          String subTarget = cleanTarget.length() >= 8 ? cleanTarget.substring(cleanTarget.length() - 8) : cleanTarget;
-                                          boolean matchParcial = subIncoming.equals(subTarget);
-
-                                          if (matchExato || matchParcial) {
+                                          if (matchExato) {
                                               triggerAlertNotification(context);
                                           }
                                       }
@@ -250,38 +272,34 @@ jobs:
 
               private void triggerAlertNotification(Context context) {
                   NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                  String alertChannelId = "portaria_alert_channel_v6";
+                  String alertChannelId = "portaria_alert_channel_debug";
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationChannel channel = new NotificationChannel(
                           alertChannelId, 
-                          "Chamada Urgente da Portaria", 
+                          "Alerta Urgente da Portaria", 
                           NotificationManager.IMPORTANCE_HIGH
                       );
-                      channel.setDescription("Alerta prioritário de chamada com tela cheia");
                       channel.enableVibration(true);
                       manager.createNotificationChannel(channel);
                   }
 
-                  // Intent para abrir o MainActivity com flags de chamada urgente
                   Intent intent = new Intent(context, MainActivity.class);
-                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                   PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
 
                   NotificationCompat.Builder builder = new NotificationCompat.Builder(context, alertChannelId)
                           .setSmallIcon(android.R.drawable.ic_menu_camera)
                           .setContentTitle("🚨 CHAMADA DA PORTARIA!")
                           .setContentText("Toque para ver a câmera ao vivo.")
-                          .setPriority(NotificationCompat.PRIORITY_MAX)
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
                           .setCategory(NotificationCompat.CATEGORY_CALL)
-                          .setFullScreenIntent(pendingIntent, true) // O segredo para forçar o pop-up na tela
                           .setAutoCancel(true)
                           .setDefaults(NotificationCompat.DEFAULT_ALL)
                           .setContentIntent(pendingIntent)
                           .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
                   manager.notify(9999, builder.build());
-                  Log.d(TAG, "Notificação com FullScreenIntent disparada com sucesso.");
               }
 
               @Override
@@ -299,7 +317,7 @@ jobs:
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />' "$MANIFEST_PATH"
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST_PATH"
             sed -i '/<\/application>/i \    <service android:name=".CallService" android:exported="false" android:foregroundServiceType="phoneCall" />' "$MANIFEST_PATH"
           fi
 
