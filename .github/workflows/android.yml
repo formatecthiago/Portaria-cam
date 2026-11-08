@@ -28,7 +28,7 @@ jobs:
         run: |
           npm install
 
-      - name: 5. Criar bridge.js de Comunicação Direta (WebView Interface)
+      - name: 5. Criar bridge.js de Comunicação com o WebView
         run: |
           cat << 'EOF' > bridge.js
           window.PortariaBridge = {
@@ -59,12 +59,12 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com Interface Direta no WebView
+      - name: 8. Injetar Código Nativo com Diagnóstico de Notificação
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # MainActivity.java com addJavascriptInterface (100% Blindado)
+          # MainActivity.java
           cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
           package com.control.door.portaria;
 
@@ -137,7 +137,7 @@ jobs:
           }
           EOF
 
-          # CallService.java com Notificação Heads-up
+          # CallService.java com Diagnóstico de Bloqueio de Canal
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -207,8 +207,6 @@ jobs:
                                       String targetNumber = prefs.getString("numeroAlvo", "");
                                       String cleanTarget = targetNumber.replaceAll("\\D", "");
 
-                                      Log.d(TAG, "Chamada recebida: " + cleanIncoming + " | Alvo: " + cleanTarget);
-
                                       if (!cleanTarget.isEmpty() && !cleanIncoming.isEmpty()) {
                                           boolean matchExato = cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming);
                                           
@@ -217,7 +215,6 @@ jobs:
                                           boolean matchParcial = subIncoming.equals(subTarget);
 
                                           if (matchExato || matchParcial) {
-                                              Log.d(TAG, "SUCESSO! Chamada da portaria identificada.");
                                               triggerAlertNotification(context);
                                           }
                                       }
@@ -244,7 +241,7 @@ jobs:
 
               private void triggerAlertNotification(Context context) {
                   NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                  String alertChannelId = "portaria_alert_channel_v3";
+                  String alertChannelId = "portaria_alert_channel_v4";
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationChannel channel = new NotificationChannel(
@@ -254,6 +251,14 @@ jobs:
                       );
                       channel.enableVibration(true);
                       manager.createNotificationChannel(channel);
+
+                      // DIAGNÓSTICO: Verifica se o canal foi silenciado ou bloqueado pelo usuário nas configurações do Android
+                      NotificationChannel checkedChannel = manager.getNotificationChannel(alertChannelId);
+                      if (checkedChannel != null && checkedChannel.getImportance() == NotificationManager.IMPORTANCE_NONE) {
+                          Log.e(TAG, "BLOQUEIO CRÍTICO: O canal de notificação foi desativado nas configurações do Android!");
+                      } else {
+                          Log.i(TAG, "STATUS DO CANAL: Ativo e pronto para exibição Heads-up.");
+                      }
                   }
 
                   Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
@@ -273,8 +278,12 @@ jobs:
                           .setContentIntent(pendingIntent)
                           .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
-                  manager.notify(9999, builder.build());
-                  Log.d(TAG, "Notificação flutuante disparada com sucesso via addJavascriptInterface!");
+                  try {
+                      manager.notify(9999, builder.build());
+                      Log.d(TAG, "Notificação despachada para o NotificationManager com sucesso.");
+                  } catch (Exception e) {
+                      Log.e(TAG, "FALHA AO EXIBIR NOTIFICAÇÃO: " + e.getMessage(), e);
+                  }
               }
 
               @Override
