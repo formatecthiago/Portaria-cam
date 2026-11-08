@@ -142,7 +142,6 @@
             display: block;
         }
 
-        /* PAINEL DE LOG BLINDEX (ESTILO CONSOLE) */
         .log-container {
             width: 100%;
             background: #0a0a0a;
@@ -195,7 +194,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="bridge.js"></script>
 </head>
 <body>
 
@@ -220,7 +218,6 @@
             <img id="frameImg" src="https://picsum.photos/400/225" alt="Aguardando sinal...">
         </div>
 
-        <!-- PAINEL DE LOGS EM TEMPO REAL -->
         <div class="log-container">
             <div class="log-header">
                 <span>🖥️ LOG EM TEMPO REAL:</span>
@@ -271,28 +268,28 @@
             logMsg("Número salvo no localStorage: " + novoNumero);
 
             try {
-                if (window.PortariaBridge && typeof window.PortariaBridge.salvarNumero === 'function') {
-                    window.PortariaBridge.salvarNumero(novoNumero);
-                    logMsg("Bridge chamada: salvarNumero enviado ao nativo.");
+                if (window.AndroidInterface && typeof window.AndroidInterface.salvarNumero === 'function') {
+                    window.AndroidInterface.salvarNumero(novoNumero);
+                    logMsg("Comando enviado ao nativo: salvarNumero.");
                 } else {
-                    logMsg("AVISO: window.PortariaBridge não encontrado (Modo Web).");
+                    logMsg("AVISO: window.AndroidInterface indisponível (Modo Web).");
                 }
             } catch (e) {
-                logMsg("ERRO ao chamar Bridge.salvar: " + e.message);
+                logMsg("ERRO ao chamar AndroidInterface.salvar: " + e.message);
             }
 
             alert("Número salvo com sucesso!");
         }
 
         function testarAlertaManual() {
-            logMsg("Botão 'Testar Alerta' pressionado pelo usuário.");
+            logMsg("Botão 'Testar Alerta' pressionado.");
             try {
-                if (window.PortariaBridge && typeof window.PortariaBridge.testarAlerta === 'function') {
-                    window.PortariaBridge.testarAlerta();
-                    logMsg("Bridge chamada: testarAlerta enviado ao nativo com sucesso.");
+                if (window.AndroidInterface && typeof window.AndroidInterface.testarAlerta === 'function') {
+                    window.AndroidInterface.testarAlerta();
+                    logMsg("Comando enviado ao nativo: testarAlerta com sucesso.");
                 } else {
-                    logMsg("FALHA: window.PortariaBridge.testarAlerta indisponível!");
-                    alert("Simulação web: Ponte nativa não detectada.");
+                    logMsg("FALHA: window.AndroidInterface.testarAlerta indisponível!");
+                    alert("Simulação web: Interface nativa não detectada.");
                 }
             } catch (e) {
                 logMsg("EXCEÇÃO em testarAlertaManual: " + e.message);
@@ -319,18 +316,13 @@
             const data = snapshot.val();
             if (data && data.imagem) {
                 frameImg.src = data.imagem;
-                // logMsg("Frame do Firebase recebido."); // Comentado para não lotar o log
                 clearTimeout(timerRepouso);
-                timerRepouso = setTimeout(() => {
-                    // logMsg("Câmera em repouso.");
-                }, 2000);
-            } else {
-                // logMsg("Firebase sem imagem no momento.");
+                timerRepouso = setTimeout(() => {}, 2000);
             }
         });
 
         function fecharTudo() {
-            logMsg("Fechando aplicativo / redirecionando...");
+            logMsg("Fechando aplicativo...");
             window.location.href = "https://www.google.com";
         }
     </script>
