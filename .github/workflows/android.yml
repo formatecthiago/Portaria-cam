@@ -59,7 +59,7 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com Autoverificação de Canal no Serviço
+      - name: 8. Injetar Código Nativo com Canal Blindado no Topo do Serviço
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
@@ -137,14 +137,12 @@ jobs:
                   intent.setAction("TEST_ALERT");
                   mContext.startService(intent);
 
-                  // Auditoria em tempo real na tela
+                  // Auditoria em tempo real na tela informando o status exato do canal
                   android.app.NotificationManager manager = (android.app.NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-                  String statusCanal = "CRIADO";
+                  String statusCanal = "NÃO ENCONTRADO";
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       android.app.NotificationChannel ch = manager.getNotificationChannel("portaria_alert_channel_definitivo");
-                      if (ch == null) {
-                          statusCanal = "NÃO ENCONTRADO";
-                      } else {
+                      if (ch != null) {
                           statusCanal = "OK (Importância: " + ch.getImportance() + ")";
                       }
                   }
@@ -156,7 +154,7 @@ jobs:
           }
           EOF
 
-          # CallService.java (Cria e valida o canal por conta própria)
+          # CallService.java com criação imediata e síncrona de canais
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -185,16 +183,19 @@ jobs:
               @Override
               public void onCreate() {
                   super.onCreate();
-                  garantirCanaisCriados();
+                  
+                  // CRIAÇÃO IMEDIATA DOS CANAIS ANTES DE QUALQUER OUTRA COISA
+                  criarCanaisForcado(this);
+
                   startForegroundServiceCustom();
                   registerCallReceiver();
               }
 
-              private void garantirCanaisCriados() {
+              public static void criarCanaisForcado(Context context) {
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                      NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                       
-                      // Canal do Serviço Foreground
+                      // Canal de Serviço
                       NotificationChannel serviceChannel = new NotificationChannel(
                           SERVICE_CHANNEL_ID, 
                           "Serviço Ativo da Portaria", 
@@ -202,7 +203,7 @@ jobs:
                       );
                       manager.createNotificationChannel(serviceChannel);
 
-                      // Canal de Alerta Urgente da Chamada
+                      // Canal de Alerta Urgente (Força Importância Alta)
                       NotificationChannel alertChannel = new NotificationChannel(
                           ALERT_CHANNEL_ID, 
                           "Alerta Urgente da Portaria", 
@@ -266,6 +267,9 @@ jobs:
 
               @Override
               public int onStartCommand(Intent intent, int flags, int startId) {
+                  // Garante a recriação preventiva ao receber qualquer comando
+                  criarCanaisForcado(this);
+
                   if (intent != null && "TEST_ALERT".equals(intent.getAction())) {
                       triggerAlertNotification(this);
                   }
@@ -275,15 +279,8 @@ jobs:
               private void triggerAlertNotification(Context context) {
                   NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                   
-                  // Garante a recriação caso o sistema tenha limpo o canal
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationChannel alertChannel = new NotificationChannel(
-                          ALERT_CHANNEL_ID, 
-                          "Alerta Urgente da Portaria", 
-                          NotificationManager.IMPORTANCE_HIGH
-                      );
-                      manager.createNotificationChannel(alertChannel);
-                  }
+                  // Assegura que o canal existe no microssegundo do disparo
+                  criarCanaisForcado(context);
 
                   Intent intent = new Intent(context, MainActivity.class);
                   intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -301,7 +298,7 @@ jobs:
                           .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
                   manager.notify(9999, builder.build());
-                  Log.d(TAG, "Notificação despachada com sucesso pelo CallService.");
+                  Log.d(TAG, "Notificação despachada com sucesso.");
               }
 
               @Override
