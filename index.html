@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a1a1a">
-    <title>Portaria ao vivo</title>
+    <title>Portaria ao vivo - Debug Log</title>
 
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -20,7 +20,7 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 15px;
+            padding: 10px;
         }
 
         .container {
@@ -29,7 +29,7 @@
             max-width: 420px;
             background: #1e1e1e;
             border-radius: 16px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
             display: flex;
             flex-direction: column;
@@ -38,25 +38,22 @@
 
         .btn-close-top {
             position: absolute;
-            top: 15px;
-            right: 15px;
+            top: 12px;
+            right: 12px;
             background: #ff4757;
             color: #ffffff;
             border: none;
-            padding: 6px 14px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: bold;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
         }
 
-        .btn-close-top:active { transform: scale(0.95); }
-
         h2 {
-            font-size: 1.1rem;
-            margin-top: 10px;
-            margin-bottom: 15px;
+            font-size: 1rem;
+            margin-top: 5px;
+            margin-bottom: 10px;
             color: #e0e0e0;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -67,26 +64,25 @@
         .config-box {
             width: 100%;
             background: #2a2a2a;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             border: 1px solid #3d3d3d;
         }
 
         .config-box label {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #00ff88;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             font-weight: bold;
         }
 
         .config-row {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
 
         .config-row input {
@@ -94,35 +90,33 @@
             background: #121212;
             border: 1px solid #444;
             color: #fff;
-            padding: 8px 10px;
+            padding: 6px 8px;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .config-row button {
             background: #00b894;
             color: #fff;
             border: none;
-            padding: 8px 14px;
+            padding: 6px 10px;
             border-radius: 6px;
             font-weight: bold;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             cursor: pointer;
         }
-
-        .config-row button:active { transform: scale(0.95); }
 
         .btn-test {
             width: 100%;
             background: #007bff;
             color: #fff;
             border: none;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             cursor: pointer;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
             box-shadow: 0 4px 10px rgba(0,123,255,0.3);
         }
         .btn-test:active { transform: scale(0.98); }
@@ -130,14 +124,15 @@
         .video-wrapper {
             position: relative;
             width: 100%;
-            height: 220px;
+            height: 150px;
             background-color: #000;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
-            border: 2px solid #333;
+            border: 1px solid #333;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-bottom: 8px;
         }
 
         #frameImg {
@@ -147,25 +142,55 @@
             display: block;
         }
 
-        .status-bar {
-            margin: 15px 0 5px 0;
-            font-size: 0.85rem;
-            color: #aaa;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        /* PAINEL DE LOG BLINDEX (ESTILO CONSOLE) */
+        .log-container {
             width: 100%;
+            background: #0a0a0a;
+            border: 1px solid #00ff88;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
         }
 
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: #ff4757;
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #00ff88;
+            font-weight: bold;
+            border-bottom: 1px solid #222;
+            padding-bottom: 4px;
         }
 
-        .status-dot.online { background-color: #00ff88; box-shadow: 0 0 8px #00ff88; }
-        .status-dot.repouso { background-color: #eccc68; box-shadow: 0 0 8px #eccc68; }
+        .btn-copy-log {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+        }
+
+        #logBox {
+            width: 100%;
+            height: 90px;
+            background: #000;
+            color: #00ff88;
+            font-family: monospace;
+            font-size: 0.65rem;
+            padding: 5px;
+            border-radius: 4px;
+            overflow-y: auto;
+            text-align: left;
+            border: 1px solid #222;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -175,9 +200,7 @@
 <body>
 
     <div class="container">
-        <button class="btn-close-top" onclick="fecharTudo()">
-            ✖ Sair
-        </button>
+        <button class="btn-close-top" onclick="fecharTudo()">✖ Sair</button>
 
         <h2>Portaria ao vivo</h2>
 
@@ -197,44 +220,87 @@
             <img id="frameImg" src="https://picsum.photos/400/225" alt="Aguardando sinal...">
         </div>
 
-        <div class="status-bar">
-            <div id="statusDot" class="status-dot"></div>
-            <span id="statusTxt">Aguardando chamada...</span>
+        <!-- PAINEL DE LOGS EM TEMPO REAL -->
+        <div class="log-container">
+            <div class="log-header">
+                <span>🖥️ LOG EM TEMPO REAL:</span>
+                <button class="btn-copy-log" onclick="copiarLogs()">Copiar Logs</button>
+            </div>
+            <div id="logBox">Iniciando sistema de log...</div>
         </div>
     </div>
 
     <script>
+        function logMsg(texto) {
+            const box = document.getElementById('logBox');
+            const horario = new Date().toLocaleTimeString();
+            box.textContent += `[${horario}] ${texto}\n`;
+            box.scrollTop = box.scrollHeight;
+            console.log(`[LOG] ${texto}`);
+        }
+
+        function copiarLogs() {
+            const box = document.getElementById('logBox');
+            navigator.clipboard.writeText(box.textContent).then(() => {
+                alert("Logs copiados para a área de transferência!");
+            }).catch(err => {
+                alert("Erro ao copiar logs: " + err);
+            });
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
+            logMsg("DOM carregado com sucesso.");
             const numeroSalvo = localStorage.getItem('numeroPortariaAlvo') || "";
             if (numeroSalvo) {
                 document.getElementById('inputNumero').value = numeroSalvo;
+                logMsg("Número recuperado do Storage: " + numeroSalvo);
+            } else {
+                logMsg("Nenhum número salvo anteriormente.");
             }
         });
 
         function salvarNumeroPortaria() {
             const novoNumero = document.getElementById('inputNumero').value.trim();
             if (!novoNumero) {
+                logMsg("ERRO: Digite um número válido para salvar.");
                 alert("Por favor, digite o número da portaria.");
                 return;
             }
             
             localStorage.setItem('numeroPortariaAlvo', novoNumero);
+            logMsg("Número salvo no localStorage: " + novoNumero);
 
-            if (window.PortariaBridge && typeof window.PortariaBridge.salvarNumero === 'function') {
-                window.PortariaBridge.salvarNumero(novoNumero);
+            try {
+                if (window.PortariaBridge && typeof window.PortariaBridge.salvarNumero === 'function') {
+                    window.PortariaBridge.salvarNumero(novoNumero);
+                    logMsg("Bridge chamada: salvarNumero enviado ao nativo.");
+                } else {
+                    logMsg("AVISO: window.PortariaBridge não encontrado (Modo Web).");
+                }
+            } catch (e) {
+                logMsg("ERRO ao chamar Bridge.salvar: " + e.message);
             }
 
             alert("Número salvo com sucesso!");
         }
 
         function testarAlertaManual() {
-            if (window.PortariaBridge && typeof window.PortariaBridge.testarAlerta === 'function') {
-                window.PortariaBridge.testarAlerta();
-            } else {
-                alert("Simulação web: O teste nativo funcionará no APK gerado.");
+            logMsg("Botão 'Testar Alerta' pressionado pelo usuário.");
+            try {
+                if (window.PortariaBridge && typeof window.PortariaBridge.testarAlerta === 'function') {
+                    window.PortariaBridge.testarAlerta();
+                    logMsg("Bridge chamada: testarAlerta enviado ao nativo com sucesso.");
+                } else {
+                    logMsg("FALHA: window.PortariaBridge.testarAlerta indisponível!");
+                    alert("Simulação web: Ponte nativa não detectada.");
+                }
+            } catch (e) {
+                logMsg("EXCEÇÃO em testarAlertaManual: " + e.message);
+                alert("Erro: " + e.message);
             }
         }
 
+        // Firebase Stream
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
@@ -242,12 +308,10 @@
 
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
+            logMsg("Firebase inicializado com sucesso.");
         }
         const database = firebase.database();
-
         const frameImg = document.getElementById('frameImg');
-        const statusTxt = document.getElementById('statusTxt');
-        const statusDot = document.getElementById('statusDot');
 
         let timerRepouso = null;
 
@@ -255,24 +319,18 @@
             const data = snapshot.val();
             if (data && data.imagem) {
                 frameImg.src = data.imagem;
-                statusTxt.textContent = "Portaria: Transmissão Ativa (Ao Vivo)";
-                statusDot.className = "status-dot online";
-
+                // logMsg("Frame do Firebase recebido."); // Comentado para não lotar o log
                 clearTimeout(timerRepouso);
                 timerRepouso = setTimeout(() => {
-                    marcarComoInativo();
+                    // logMsg("Câmera em repouso.");
                 }, 2000);
             } else {
-                marcarComoInativo();
+                // logMsg("Firebase sem imagem no momento.");
             }
         });
 
-        function marcarComoInativo() {
-            statusTxt.textContent = "Portaria: Sem sinal / Repouso";
-            statusDot.className = "status-dot repouso";
-        }
-
         function fecharTudo() {
+            logMsg("Fechando aplicativo / redirecionando...");
             window.location.href = "https://www.google.com";
         }
     </script>
