@@ -28,21 +28,21 @@ jobs:
         run: |
           npm install
 
-      - name: 5. Criar bridge.js de Comunicação Nativa
+      - name: 5. Criar bridge.js de Comunicação Direta (WebView Interface)
         run: |
           cat << 'EOF' > bridge.js
           window.PortariaBridge = {
               salvarNumero: function(numero) {
                   try {
-                      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PortariaPlugin) {
-                          window.Capacitor.Plugins.PortariaPlugin.salvarNumero({ numero: numero });
+                      if (window.AndroidInterface && typeof window.AndroidInterface.salvarNumero === 'function') {
+                          window.AndroidInterface.salvarNumero(numero);
                       }
                   } catch (e) { console.error(e); }
               },
               testarAlerta: function() {
                   try {
-                      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PortariaPlugin) {
-                          window.Capacitor.Plugins.PortariaPlugin.testarAlerta();
+                      if (window.AndroidInterface && typeof window.AndroidInterface.testarAlerta === 'function') {
+                          window.AndroidInterface.testarAlerta();
                       }
                   } catch (e) { console.error(e); }
               }
@@ -59,12 +59,12 @@ jobs:
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo (Notificação Flutuante e Comparação Inteligente)
+      - name: 8. Injetar Código Nativo com Interface Direta no WebView
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # MainActivity.java
+          # MainActivity.java com addJavascriptInterface (100% Blindado)
           cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
           package com.control.door.portaria;
 
@@ -74,20 +74,24 @@ jobs:
           import android.content.SharedPreferences;
           import android.os.Build;
           import android.os.Bundle;
+          import android.webkit.JavascriptInterface;
           import androidx.core.app.ActivityCompat;
           import com.getcapacitor.BridgeActivity;
-          import com.getcapacitor.Plugin;
-          import com.getcapacitor.PluginCall;
-          import com.getcapacitor.PluginMethod;
-          import com.getcapacitor.annotation.CapacitorPlugin;
 
           public class MainActivity extends BridgeActivity {
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  registerPlugin(PortariaPlugin.class);
                   solicitarPermissoesAgressivas();
                   iniciarServicoBackground();
+                  configurarBridgeNativa();
+              }
+
+              private void configurarBridgeNativa() {
+                  if (this.bridge != null && this.bridge.getWebView() != null) {
+                      this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);
+                      this.bridge.getWebView().addJavascriptInterface(new WebAppInterface(this), "AndroidInterface");
+                  }
               }
 
               private void solicitarPermissoesAgressivas() {
@@ -111,27 +115,29 @@ jobs:
               }
           }
 
-          @CapacitorPlugin(name = "PortariaPlugin")
-          class PortariaPlugin extends Plugin {
-              @PluginMethod
-              public void salvarNumero(PluginCall call) {
-                  String numero = call.getString("numero");
-                  SharedPreferences prefs = getContext().getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
-                  prefs.edit().putString("numeroAlvo", numero).apply();
-                  call.resolve();
+          class WebAppInterface {
+              Context mContext;
+
+              WebAppInterface(Context c) {
+                  mContext = c;
               }
 
-              @PluginMethod
-              public void testarAlerta(PluginCall call) {
-                  Intent intent = new Intent(getContext(), CallService.class);
+              @JavascriptInterface
+              public void salvarNumero(String numero) {
+                  SharedPreferences prefs = mContext.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
+                  prefs.edit().putString("numeroAlvo", numero).apply();
+              }
+
+              @JavascriptInterface
+              public void testarAlerta() {
+                  Intent intent = new Intent(mContext, CallService.class);
                   intent.setAction("TEST_ALERT");
-                  getContext().startService(intent);
-                  call.resolve();
+                  mContext.startService(intent);
               }
           }
           EOF
 
-          # CallService.java com Notificação Heads-up corrigida
+          # CallService.java com Notificação Heads-up
           cat << 'EOF' > "$JAVA_DIR/CallService.java"
           package com.control.door.portaria;
 
@@ -238,7 +244,7 @@ jobs:
 
               private void triggerAlertNotification(Context context) {
                   NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                  String alertChannelId = "portaria_alert_channel_v2";
+                  String alertChannelId = "portaria_alert_channel_v3";
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationChannel channel = new NotificationChannel(
@@ -268,7 +274,7 @@ jobs:
                           .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
                   manager.notify(9999, builder.build());
-                  Log.d(TAG, "Notificação flutuante forçada disparada com sucesso!");
+                  Log.d(TAG, "Notificação flutuante disparada com sucesso via addJavascriptInterface!");
               }
 
               @Override
