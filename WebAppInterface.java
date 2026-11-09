@@ -22,7 +22,7 @@ public class WebAppInterface {
         SharedPreferences prefs = mContext.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
         prefs.edit().putString("numeroAlvo", phoneNumber).apply();
 
-        // Inicia o serviço em segundo plano
+        // Inicia o serviço em segundo plano com suporte a foreground service
         Intent serviceIntent = new Intent(mContext, CallService.class);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             mContext.startForegroundService(serviceIntent);
