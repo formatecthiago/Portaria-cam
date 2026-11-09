@@ -106,6 +106,21 @@
             cursor: pointer;
         }
 
+        .btn-activate {
+            width: 100%;
+            background: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 10px rgba(40,167,69,0.3);
+        }
+        .btn-activate:active { transform: scale(0.98); }
+
         .btn-test {
             width: 100%;
             background: #007bff;
@@ -210,6 +225,10 @@
             </div>
         </div>
 
+        <button class="btn-activate" onclick="ativarServicoManual()">
+            🟢 Ativar Monitoramento da Portaria
+        </button>
+
         <button class="btn-test" onclick="testarAlertaManual()">
             🧪 Testar Notificação de Chamada Agora
         </button>
@@ -279,6 +298,22 @@
             }
 
             alert("Número salvo com sucesso!");
+        }
+
+        function ativarServicoManual() {
+            logMsg("Botão 'Ativar Monitoramento' pressionado.");
+            try {
+                if (window.AndroidInterface && typeof window.AndroidInterface.ativarServico === 'function') {
+                    window.AndroidInterface.ativarServico();
+                    logMsg("Comando enviado ao nativo: ativarServico com sucesso.");
+                } else {
+                    logMsg("FALHA: window.AndroidInterface.ativarServico indisponível!");
+                    alert("Simulação web: Interface nativa não detectada.");
+                }
+            } catch (e) {
+                logMsg("EXCEÇÃO em ativarServicoManual: " + e.message);
+                alert("Erro: " + e.message);
+            }
         }
 
         function testarAlertaManual() {
