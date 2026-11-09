@@ -28,275 +28,28 @@ jobs:
         run: |
           npm install
 
-      - name: 5. Criar bridge.js com Gatilho de Ativação e Teste
-        run: |
-          cat << 'EOF' > bridge.js
-          window.PortariaBridge = {
-              salvarNumero: function(numero) {
-                  try {
-                      if (window.AndroidInterface && typeof window.AndroidInterface.salvarNumero === 'function') {
-                          window.AndroidInterface.salvarNumero(numero);
-                      }
-                  } catch (e) { console.error(e); }
-              },
-              ativarServico: function() {
-                  try {
-                      if (window.AndroidInterface && typeof window.AndroidInterface.ativarServico === 'function') {
-                          window.AndroidInterface.ativarServico();
-                      }
-                  } catch (e) { console.error(e); }
-              },
-              testarAlerta: function() {
-                  try {
-                      if (window.AndroidInterface && typeof window.AndroidInterface.testarAlerta === 'function') {
-                          window.AndroidInterface.testarAlerta();
-                      }
-                  } catch (e) { console.error(e); }
-              }
-          };
-          EOF
-
-      - name: 6. Estruturar Pasta Web (www)
+      - name: 5. Estruturar Pasta Web (www)
         run: |
           mkdir -p www
           cp -r index.html bridge.js manifest.json icon.svg www/ 2>/dev/null || true
 
-      - name: 7. Sincronizar Plataforma Android
+      - name: 6. Sincronizar Plataforma Android
         run: |
           npx cap add android || echo "Plataforma android ja existe"
           npx cap sync android
 
-      - name: 8. Injetar Código Nativo com Gatilho Voluntário (Ativação Limpa)
+      - name: 7. Copiar Arquivos Nativos da Raiz para o Projeto Android
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # MainActivity.java
-          cat << 'EOF' > "$JAVA_DIR/MainActivity.java"
-          package com.control.door.portaria;
+          # Copia o seu CallService.java da raiz diretamente para o Android
+          if [ -f "CallService.java" ]; then
+            cp CallService.java "$JAVA_DIR/CallService.java"
+            echo "CallService.java copiado com sucesso."
+          fi
 
-          import android.Manifest;
-          import android.content.Context;
-          import android.content.Intent;
-          import android.content.SharedPreferences;
-          import android.content.pm.PackageManager;
-          import android.os.Build;
-          import android.os.Bundle;
-          import android.webkit.JavascriptInterface;
-          import android.webkit.WebView;
-          import androidx.core.app.ActivityCompat;
-          import androidx.core.content.ContextCompat;
-          import com.getcapacitor.BridgeActivity;
-
-          public class MainActivity extends BridgeActivity {
-              @Override
-              public void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  configurarBridgeNativa();
-              }
-
-              private void configurarBridgeNativa() {
-                  if (this.bridge != null && this.bridge.getWebView() != null) {
-                      this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);
-                      this.bridge.getWebView().addJavascriptInterface(new WebAppInterface(this, this.bridge.getWebView()), "AndroidInterface");
-                  }
-              }
-          }
-
-          class WebAppInterface {
-              Context mContext;
-              WebView mWebView;
-
-              WebAppInterface(Context c, WebView w) {
-                  mContext = c;
-                  mWebView = w;
-              }
-
-              @JavascriptInterface
-              public void salvarNumero(String numero) {
-                  SharedPreferences prefs = mContext.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
-                  prefs.edit().putString("numeroAlvo", numero).apply();
-              }
-
-              @JavascriptInterface
-              public void ativarServico() {
-                  // Solicita permissões de forma limpa através da Activity via Intent ou execução direta
-                  Intent serviceIntent = new Intent(mContext, CallService.class);
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      mContext.startForegroundService(serviceIntent);
-                  } else {
-                      mContext.startService(serviceIntent);
-                  }
-
-                  final String msgLog = "--- SISTEMA ---\\nServiço de portaria ativado com sucesso!";
-                  String script = "if(typeof logMsg === 'function'){ logMsg('" + msgLog + "'); }";
-                  mWebView.post(() -> mWebView.evaluateJavascript(script, null));
-              }
-
-              @JavascriptInterface
-              public void testarAlerta() {
-                  Intent intent = new Intent(mContext, CallService.class);
-                  intent.setAction("TEST_ALERT");
-                  mContext.startService(intent);
-
-                  final String msgLog = "--- AUDITORIA NATIVA ---\\nComando de teste de alarme enviado.";
-                  String script = "if(typeof logMsg === 'function'){ logMsg('" + msgLog + "'); }";
-                  mWebView.post(() -> mWebView.evaluateJavascript(script, null));
-              }
-          }
-          EOF
-
-          # CallService.java com estrutura limpa e padrão
-          cat << 'EOF' > "$JAVA_DIR/CallService.java"
-          package com.control.door.portaria;
-
-          import android.app.Notification;
-          import android.app.NotificationChannel;
-          import android.app.NotificationManager;
-          import android.app.PendingIntent;
-          import android.app.Service;
-          import android.content.BroadcastReceiver;
-          import android.content.Context;
-          import android.content.Intent;
-          import android.content.IntentFilter;
-          import android.content.SharedPreferences;
-          import android.os.Build;
-          import android.os.IBinder;
-          import android.telephony.TelephonyManager;
-          import android.util.Log;
-          import androidx.core.app.NotificationCompat;
-
-          public class CallService extends Service {
-              private static final String TAG = "CallServiceDebug";
-              private static final String SERVICE_CHANNEL_ID = "portaria_service_channel_clean";
-              public static final String ALERT_CHANNEL_ID = "portaria_alert_channel_clean";
-              private BroadcastReceiver callReceiver;
-
-              @Override
-              public void onCreate() {
-                  super.onCreate();
-                  criarCanais(this);
-                  startForegroundServiceCustom();
-                  registerCallReceiver();
-              }
-
-              public static void criarCanais(Context context) {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                      
-                      // Canal de Serviço
-                      NotificationChannel serviceChannel = new NotificationChannel(
-                          SERVICE_CHANNEL_ID, 
-                          "Serviço Ativo da Portaria", 
-                          NotificationManager.IMPORTANCE_LOW
-                      );
-                      manager.createNotificationChannel(serviceChannel);
-
-                      // Canal de Alerta
-                      NotificationChannel alertChannel = new NotificationChannel(
-                          ALERT_CHANNEL_ID, 
-                          "Alerta de Chamadas da Portaria", 
-                          NotificationManager.IMPORTANCE_HIGH
-                      );
-                      alertChannel.setDescription("Notificações prioritárias de chamadas");
-                      alertChannel.enableVibration(true);
-                      manager.createNotificationChannel(alertChannel);
-                  }
-              }
-
-              private void startForegroundServiceCustom() {
-                  Intent notificationIntent = new Intent(this, MainActivity.class);
-                  PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
-
-                  Notification notification = new NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
-                          .setContentTitle("Portaria Ativa")
-                          .setContentText("Monitorando chamadas...")
-                          .setSmallIcon(android.R.drawable.ic_menu_camera)
-                          .setContentIntent(pendingIntent)
-                          .build();
-
-                  startForeground(1337, notification);
-              }
-
-              private void registerCallReceiver() {
-                  callReceiver = new BroadcastReceiver() {
-                      @Override
-                      public void onReceive(Context context, Intent intent) {
-                          try {
-                              String action = intent.getAction();
-                              if (TelephonyManager.ACTION_PHONE_STATE_CHANGED.equals(action)) {
-                                  String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-                                  if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
-                                      String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-                                      if (incomingNumber == null) incomingNumber = "";
-                                      String cleanIncoming = incomingNumber.replaceAll("\\D", "");
-
-                                      SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
-                                      String targetNumber = prefs.getString("numeroAlvo", "");
-                                      String cleanTarget = targetNumber.replaceAll("\\D", "");
-
-                                      if (!cleanTarget.isEmpty() && !cleanIncoming.isEmpty()) {
-                                          boolean matchExato = cleanIncoming.contains(cleanTarget) || cleanTarget.contains(cleanIncoming);
-                                          if (matchExato) {
-                                              triggerAlertNotification(context);
-                                          }
-                                      }
-                                  }
-                              }
-                          } catch (Exception e) {
-                              Log.e(TAG, "Erro no BroadcastReceiver", e);
-                          }
-                      }
-                  };
-
-                  IntentFilter filter = new IntentFilter();
-                  filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
-                  registerReceiver(callReceiver, filter);
-              }
-
-              @Override
-              public int onStartCommand(Intent intent, int flags, int startId) {
-                  criarCanais(this);
-                  if (intent != null && "TEST_ALERT".equals(intent.getAction())) {
-                      triggerAlertNotification(this);
-                  }
-                  return START_STICKY;
-              }
-
-              private void triggerAlertNotification(Context context) {
-                  NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                  criarCanais(context);
-
-                  Intent intent = new Intent(context, MainActivity.class);
-                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                  PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-
-                  NotificationCompat.Builder builder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                          .setSmallIcon(android.R.drawable.ic_menu_camera)
-                          .setContentTitle("🚨 CHAMADA DA PORTARIA!")
-                          .setContentText("Toque para abrir o app e ver a câmera.")
-                          .setPriority(NotificationCompat.PRIORITY_HIGH)
-                          .setCategory(NotificationCompat.CATEGORY_CALL)
-                          .setAutoCancel(true)
-                          .setContentIntent(pendingIntent)
-                          .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-
-                  manager.notify(7777, builder.build());
-                  Log.d(TAG, "Notificação de alerta disparada com sucesso.");
-              }
-
-              @Override
-              public IBinder onBind(Intent intent) { return null; }
-
-              @Override
-              public void onDestroy() {
-                  if (callReceiver != null) { unregisterReceiver(callReceiver); }
-                  super.onDestroy();
-              }
-          }
-          EOF
-
-      - name: 9. Configurar Permissões no AndroidManifest.xml
+      - name: 8. Configurar Permissões no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
@@ -304,12 +57,12 @@ jobs:
             sed -i '/<\/application>/i \    <service android:name=".CallService" android:exported="false" android:foregroundServiceType="phoneCall" />' "$MANIFEST_PATH"
           fi
 
-      - name: 10. Copiar Google Services para o Android Nativo
+      - name: 9. Copiar Google Services para o Android Nativo
         run: |
           mkdir -p android/app
           cp google-services.json android/app/ 2>/dev/null || true
 
-      - name: 11. Gerar APK Debug
+      - name: 10. Gerar APK Debug
         run: |
           GRADLEW_PATH=$(find android -name gradlew)
           GRADLE_DIR=$(dirname "$GRADLEW_PATH")
@@ -317,7 +70,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: 12. Disponibilizar APK para Download
+      - name: 11. Disponibilizar APK para Download
         uses: actions/upload-artifact@v4
         with:
           name: Portaria-APK
