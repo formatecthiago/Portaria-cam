@@ -43,10 +43,14 @@ jobs:
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           
-          # Copia o seu CallService.java da raiz diretamente para o Android
           if [ -f "CallService.java" ]; then
             cp CallService.java "$JAVA_DIR/CallService.java"
-            echo "CallService.java copiado com sucesso."
+            echo "CallService.java copiado."
+          fi
+          
+          if [ -f "MainActivity.java" ]; then
+            cp MainActivity.java "$JAVA_DIR/MainActivity.java"
+            echo "MainActivity.java copiado."
           fi
 
       - name: 8. Configurar Permissões no AndroidManifest.xml
@@ -68,6 +72,8 @@ jobs:
           GRADLE_DIR=$(dirname "$GRADLEW_PATH")
           cd "$GRADLE_DIR"
           chmod +x gradlew
+          # Contorna instabilidades de download do Gradle se ocorrer o erro 504
+          ./gradlew wrapper --gradle-version 8.4 || true
           ./gradlew assembleDebug
 
       - name: 11. Disponibilizar APK para Download
