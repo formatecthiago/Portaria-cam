@@ -2,18 +2,23 @@
 window.PortariaBridge = {
     salvarNumero: function(numero) {
         try {
-            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PortariaPlugin) {
-                window.Capacitor.Plugins.PortariaPlugin.salvarNumero({ numero: numero });
-                console.log("Número enviado para o nativo via Capacitor:", numero);
-            } else {
-                console.log("Modo Web/Fallback: Número salvo na sessão.");
+            if (window.AndroidInterface && typeof window.AndroidInterface.salvarNumero === 'function') {
+                window.AndroidInterface.salvarNumero(numero);
             }
-        } catch (e) {
-            console.error("Erro ao salvar número nativamente:", e);
-        }
+        } catch (e) { console.error(e); }
+    },
+    ativarServico: function() {
+        try {
+            if (window.AndroidInterface && typeof window.AndroidInterface.ativarServico === 'function') {
+                window.AndroidInterface.ativarServico();
+            }
+        } catch (e) { console.error(e); }
+    },
+    testarAlerta: function() {
+        try {
+            if (window.AndroidInterface && typeof window.AndroidInterface.testarAlerta === 'function') {
+                window.AndroidInterface.testarAlerta();
+            }
+        } catch (e) { console.error(e); }
     }
 };
-
-document.addEventListener('deviceready', () => {
-    console.log("Ambiente nativo Capacitor inicializado com sucesso.");
-}, false);
