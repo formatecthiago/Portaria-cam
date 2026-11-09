@@ -1,44 +1,4 @@
-name: Build Android APK (Portaria)
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 1. Checkout do Repositório
-        uses: actions/checkout@v4
-
-      - name: 2. Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: 3. Configurar Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: 4. Instalar Dependências
-        run: |
-          npm install
-
-      - name: 5. Estruturar Pasta Web (www)
-        run: |
-          mkdir -p www
-          cp -r index.html bridge.js manifest.json icon.svg www/ 2>/dev/null || true
-
-      - name: 6. Sincronizar Plataforma Android
-        run: |
-          npx cap add android || echo "Plataforma android ja existe"
-          npx cap sync android
-
-      - name: 7. Copiar Arquivos Nativos da Raiz para o Projeto Android
+      - name: Copiar Arquivos Nativos da Raiz para o Projeto Android
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
@@ -48,29 +8,12 @@ jobs:
             echo "CallService.java copiado."
           fi
 
-      - name: 8. Configurar Permissões no AndroidManifest.xml
-        run: |
-          MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
-          if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST_PATH"
-            sed -i '/<\/application>/i \    <service android:name=".CallService" android:exported="false" android:foregroundServiceType="phoneCall" />' "$MANIFEST_PATH"
+          if [ -f "WebAppInterface.java" ]; then
+            cp WebAppInterface.java "$JAVA_DIR/WebAppInterface.java"
+            echo "WebAppInterface.java copiado."
           fi
 
-      - name: 9. Copiar Google Services para o Android Nativo
-        run: |
-          mkdir -p android/app
-          cp google-services.json android/app/ 2>/dev/null || true
-
-      - name: 10. Gerar APK Debug
-        run: |
-          GRADLEW_PATH=$(find android -name gradlew)
-          GRADLE_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$GRADLE_DIR"
-          chmod +x gradlew
-          ./gradlew assembleDebug
-
-      - name: 11. Disponibilizar APK para Download
-        uses: actions/upload-artifact@v4
-        with:
-          name: Portaria-APK
-          path: "**/app-debug.apk"
+          if [ -f "MainActivity.java" ]; then
+            cp MainActivity.java "$JAVA_DIR/MainActivity.java"
+            echo "MainActivity.java copiado."
+          fi
