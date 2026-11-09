@@ -47,11 +47,6 @@ jobs:
             cp CallService.java "$JAVA_DIR/CallService.java"
             echo "CallService.java copiado."
           fi
-          
-          if [ -f "MainActivity.java" ]; then
-            cp MainActivity.java "$JAVA_DIR/MainActivity.java"
-            echo "MainActivity.java copiado."
-          fi
 
       - name: 8. Configurar Permissões no AndroidManifest.xml
         run: |
