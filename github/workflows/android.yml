@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. Checkout do Repositório
+      - name: 1. Checkout do Repositorio
         uses: actions/checkout@v4
 
       - name: 2. Configurar Node.js
@@ -24,41 +24,32 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: 4. Instalar Dependências
+      - name: 4. Instalar Dependencias
         run: |
           npm install
 
-      - name: 5. Estruturar Pasta Web (www)
+      - name: 5. Estruturar Pasta Web
         run: |
           mkdir -p www
           cp -r index.html package.json capacitor.config.json www/ 2>/dev/null || true
 
-      - name: 6. Sincronizar Plataforma Android
+      - name: 6. Sincronizar Android
         run: |
-          npx cap add android || echo "Plataforma android ja existe"
+          npx cap add android || echo "Ja existe"
           npx cap sync android
 
-      - name: 7. Copiar Arquivos Nativos da Raiz
+      - name: 7. Copiar Arquivos Nativos
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
-          
-          if [ -f "CallService.java" ]; then
-            cp CallService.java "$JAVA_DIR/CallService.java"
-            echo "CallService.java copiado."
-          fi
+          [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
+          [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
 
-          if [ -f "MainActivity.java" ]; then
-            cp MainActivity.java "$JAVA_DIR/MainActivity.java"
-            echo "MainActivity.java copiado."
-          fi
-
-      - name: 8. Injetar Permissões de Chamada no AndroidManifest.xml
+      - name: 8. Injetar Permissoes
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            echo "Injetando permissões no Manifesto..."
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />' "$MANIFEST_PATH"
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />' "$MANIFEST_PATH"
           fi
 
       - name: 9. Gerar APK Debug
@@ -69,7 +60,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: 10. Disponibilizar APK para Download
+      - name: 10. Salvar Artefato APK
         uses: actions/upload-artifact@v4
         with:
           name: Portaria-MVP-APK
