@@ -48,11 +48,17 @@ jobs:
             echo "CallService.java copiado."
           fi
 
-      - name: 8. Configurar Permissões no AndroidManifest.xml
+          if [ -f "MainActivity.java" ]; then
+            cp MainActivity.java "$JAVA_DIR/MainActivity.java"
+            echo "MainActivity.java copiado."
+          fi
+
+      - name: 8. Injetar Permissões de Chamada no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />' "$MANIFEST_PATH"
+            echo "Injetando permissões no Manifesto..."
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />' "$MANIFEST_PATH"
           fi
 
       - name: 9. Gerar APK Debug
