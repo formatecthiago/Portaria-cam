@@ -3,86 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portaria - MVP Detecção & Simulação</title>
+    <title>Portaria - MVP Detecção</title>
     <style>
-        body {
-            background-color: #121212;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            margin: 0;
-            transition: background-color 0.3s ease;
-        }
+        body { background-color: #121212; color: #ffffff; font-family: Arial, sans-serif; padding: 20px; margin: 0; transition: background-color 0.3s ease; }
         h2 { color: #00ffcc; text-align: center; }
-        .card {
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border: 1px solid #333;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            margin-bottom: 10px;
-            background: #2d2d2d;
-            border: 1px solid #555;
-            color: #fff;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: #00b0ff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 5px;
-        }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
+        input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 10px; background: #2d2d2d; border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #00b0ff; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; }
         button:hover { background: #0091ea; }
-        .btn-simular {
-            background: #ff9800;
-        }
-        .btn-simular:hover {
-            background: #f57c00;
-        }
-        #logBox {
-            background: #000;
-            color: #00ff00;
-            font-family: monospace;
-            padding: 10px;
-            height: 200px;
-            overflow-y: auto;
-            border-radius: 4px;
-            font-size: 12px;
-            border: 1px solid #333;
-        }
+        .btn-simular { background: #ff9800; }
+        .btn-simular:hover { background: #f57c00; }
+        #logBox { background: #000; color: #00ff00; font-family: monospace; padding: 10px; height: 200px; overflow-y: auto; border-radius: 4px; font-size: 12px; border: 1px solid #333; }
     </style>
 </head>
 <body>
-
     <h2>PORTARIA - MVP DETECÇÃO</h2>
-
     <div class="card">
         <label>Número Alvo da Chamada:</label>
         <input type="tel" id="inputNumero" placeholder="Ex: 84988509817">
         <button onclick="salvarNumero()">Salvar Número Alvo</button>
     </div>
-
     <div class="card">
         <label>Área de Teste / Simulação:</label>
         <button class="btn-simular" onclick="simularChamadaEntrando()">📲 Simular Chamada Chegando</button>
     </div>
-
     <div class="card">
         <label>Log de Atividade em Tempo Real:</label>
         <div id="logBox">Iniciando sistema...</div>
     </div>
-
 <script>
     function log(mensagem) {
         const box = document.getElementById('logBox');
@@ -90,59 +38,40 @@
         box.innerHTML += `[${hora}] ${mensagem}<br>`;
         box.scrollTop = box.scrollHeight;
     }
-
     function salvarNumero() {
         const num = document.getElementById('inputNumero').value.trim();
         if(num) {
             localStorage.setItem('numeroAlvo', num);
             log(`Número salvo com sucesso: ${num}`);
             alert('Número salvo!');
-        } else {
-            alert('Digite um número válido.');
-        }
+        } else { alert('Digite um número válido.'); }
     }
-
     window.onload = function() {
         log("App carregado em primeiro plano.");
         const salvo = localStorage.getItem('numeroAlvo');
         if(salvo) {
             document.getElementById('inputNumero').value = salvo;
             log(`Número recuperado do Storage: ${salvo}`);
-        } else {
-            log("Nenhum número salvo anteriormente.");
-        }
+        } else { log("Nenhum número salvo anteriormente."); }
     };
-
-    // Função que processa a chegada da chamada (seja real via BroadcastReceiver ou simulada pelo botão)
     function processarChamada(numeroChegando) {
         log(`🚨 CHAMADA DETECTADA DO NÚMERO: ${numeroChegando}`);
         const alvoSalvo = localStorage.getItem('numeroAlvo') || '';
-        
         if (alvoSalvo && numeroChegando.includes(alvoSalvo)) {
             log(`MATCH PERFEITO! O número ${numeroChegando} corresponde ao alvo.`);
-            document.body.style.backgroundColor = '#004d40'; // Muda a tela para verde escuro para indicar sucesso visual imediato
+            document.body.style.backgroundColor = '#004d40';
         } else {
             log(`Chamada ignorada (Não bate com o alvo: ${alvoSalvo})`);
-            document.body.style.backgroundColor = '#b71c1c'; // Vermelho escuro se não bater
+            document.body.style.backgroundColor = '#b71c1c';
         }
     }
-
-    // Botão de simulação local para testar sem precisar de outro celular
     function simularChamadaEntrando() {
         const alvoSalvo = localStorage.getItem('numeroAlvo');
-        if(!alvoSalvo) {
-            alert('Por favor, salve um número alvo primeiro!');
-            return;
-        }
+        if(!alvoSalvo) { alert('Salve um número alvo primeiro!'); return; }
         log("--- SIMULAÇÃO ACIONADA MANUALMENTE ---");
-        // Simula exatamente o número que foi salvo no campo
         processarChamada(alvoSalvo);
     }
-
-    // Método que o BroadcastReceiver nativo vai chamar quando o APK estiver rodando de verdade
-    function onChamadaDetectadaDoNativo(numeroReal) {
-        processarChamada(numeroReal);
-    }
+    function onChamadaDetectadaDoNativo(numeroReal) { processarChamada(numeroReal); }
 </script>
 </body>
 </html>
