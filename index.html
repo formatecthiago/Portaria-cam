@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portaria - MVP Detecção</title>
+    <title>Portaria - MVP Detecção & Simulação</title>
     <style>
         body {
             background-color: #121212;
@@ -11,6 +11,7 @@
             font-family: Arial, sans-serif;
             padding: 20px;
             margin: 0;
+            transition: background-color 0.3s ease;
         }
         h2 { color: #00ffcc; text-align: center; }
         .card {
@@ -40,8 +41,15 @@
             border-radius: 4px;
             font-weight: bold;
             cursor: pointer;
+            margin-top: 5px;
         }
         button:hover { background: #0091ea; }
+        .btn-simular {
+            background: #ff9800;
+        }
+        .btn-simular:hover {
+            background: #f57c00;
+        }
         #logBox {
             background: #000;
             color: #00ff00;
@@ -63,6 +71,11 @@
         <label>Número Alvo da Chamada:</label>
         <input type="tel" id="inputNumero" placeholder="Ex: 84988509817">
         <button onclick="salvarNumero()">Salvar Número Alvo</button>
+    </div>
+
+    <div class="card">
+        <label>Área de Teste / Simulação:</label>
+        <button class="btn-simular" onclick="simularChamadaEntrando()">📲 Simular Chamada Chegando</button>
     </div>
 
     <div class="card">
@@ -100,8 +113,8 @@
         }
     };
 
-    // Função que será chamada pelo nativo Android quando a chamada chegar
-    function onChamadaDetectada(numeroChegando) {
+    // Função que processa a chegada da chamada (seja real via BroadcastReceiver ou simulada pelo botão)
+    function processarChamada(numeroChegando) {
         log(`🚨 CHAMADA DETECTADA DO NÚMERO: ${numeroChegando}`);
         const alvoSalvo = localStorage.getItem('numeroAlvo') || '';
         
@@ -110,7 +123,25 @@
             document.body.style.backgroundColor = '#004d40'; // Muda a tela para verde escuro para indicar sucesso visual imediato
         } else {
             log(`Chamada ignorada (Não bate com o alvo: ${alvoSalvo})`);
+            document.body.style.backgroundColor = '#b71c1c'; // Vermelho escuro se não bater
         }
+    }
+
+    // Botão de simulação local para testar sem precisar de outro celular
+    function simularChamadaEntrando() {
+        const alvoSalvo = localStorage.getItem('numeroAlvo');
+        if(!alvoSalvo) {
+            alert('Por favor, salve um número alvo primeiro!');
+            return;
+        }
+        log("--- SIMULAÇÃO ACIONADA MANUALMENTE ---");
+        // Simula exatamente o número que foi salvo no campo
+        processarChamada(alvoSalvo);
+    }
+
+    // Método que o BroadcastReceiver nativo vai chamar quando o APK estiver rodando de verdade
+    function onChamadaDetectadaDoNativo(numeroReal) {
+        processarChamada(numeroReal);
     }
 </script>
 </body>
