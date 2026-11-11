@@ -130,10 +130,8 @@ public class CallService extends Service {
                 .addAction(android.R.drawable.ic_menu_view, "Portaria Online", pendingIntent)
                 .setFullScreenIntent(pendingIntent, false);
 
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.MANAGER_SERVICE);
-        if (manager == null) {
-            manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        }
+        // Corrigido para Context.NOTIFICATION_SERVICE
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.notify(ALERT_NOTIF_ID, alertBuilder.build());
         }
