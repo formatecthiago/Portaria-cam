@@ -1,62 +1,137 @@
 package com.control.door.portaria;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Build;
+import android.os.IBinder;
 import android.telephony.TelephonyManager;
-import android.util.Log;
-import com.getcapacitor.Bridge;
+import androidx.core.app.NotificationCompat;
 
-public class CallService {
-    private static final String TAG = "CallServiceDebug";
-    private Context context;
-    private Bridge bridge;
+public class CallService extends Service {
+
+    private static final String CHANNEL_ID = "portaria_listen_channel";
+    private static final String ALERT_CHANNEL_ID = "portaria_alert_channel";
+    private static final int NOTIF_ID = 1001;
+    private static final int ALERT_NOTIF_ID = 2002;
     private BroadcastReceiver callReceiver;
 
-    public CallService(Context ctx, Bridge bridge) {
-        this.context = ctx;
-        this.bridge = bridge;
-        registerReceiver();
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannels();
+        startForeground(NOTIF_ID, buildForegroundNotification());
+        registerCallReceiver();
     }
 
-    private void registerReceiver() {
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;
+    }
+
+    private void createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                // Canal silencioso para manter o serviço vivo em segundo plano
+                NotificationChannel serviceChannel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Serviço de Escuta da Portaria",
+                        NotificationManager.IMPORTANCE_LOW
+                );
+                
+                // Canal de alta prioridade para o Banner Pop-up de alerta
+                NotificationChannel alertChannel = new NotificationChannel(
+                        ALERT_CHANNEL_ID,
+                        "Alertas de Chamada da Portaria",
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                alertChannel.setVibrationPattern(new long[]{0, 500, 200, 500});
+                alertChannel.enableVibration(true);
+
+                manager.createNotificationChannel(serviceChannel);
+                manager.createNotificationChannel(alertChannel);
+            }
+        }
+    }
+
+    private Notification buildForegroundNotification() {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Portaria Ativa")
+                .setContentText("Monitorando chamadas em segundo plano...")
+                .setSmallIcon(android.R.drawable.ic_menu_call)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build();
+    }
+
+    private void registerCallReceiver() {
         callReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                try {
-                    String action = intent.getAction();
-                    if (TelephonyManager.ACTION_PHONE_STATE_CHANGED.equals(action)) {
-                        String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-                        if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
-                            String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-                            if (incomingNumber == null) incomingNumber = "Desconhecido";
-                            
-                            Log.d(TAG, "Chamada real detectada de: " + incomingNumber);
-                            
-                            if (bridge != null && bridge.getWebView() != null) {
-                                final String numeroFinal = incomingNumber;
-                                bridge.getActivity().runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        bridge.getWebView().evaluateJavascript(
-                                            "onChamadaDetectadaDoNativo('" + numeroFinal + "');", 
-                                            null
-                                        );
-                                    }
-                                });
-                            }
-                        }
+                if (intent == null || intent.getAction() == null) return;
+                
+                if (intent.getAction().equals(TelephonyManager.ACTION_PHONE_STATE_CHANGED)) {
+                    String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
+                    String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
+
+                    if (TelephonyManager.EXTRA_STATE_RINGING.equals(state) && incomingNumber != null) {
+                        dispararNotificacaoBanner(context, incomingNumber);
                     }
-                } catch (Exception e) {
-                    Log.e(TAG, "Erro ao capturar chamada", e);
                 }
             }
         };
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
-        context.registerReceiver(callReceiver, filter);
-        Log.d(TAG, "BroadcastReceiver de chamadas nativas ativado com sucesso.");
+        registerReceiver(callReceiver, filter);
+    }
+
+    private void dispararNotificacaoBanner(Context context, String numeroEntrando) {
+        // Intent para abrir o APK quando o usuário tocar no botão da notificação
+        Intent openAppIntent = new Intent(context, MainActivity.class);
+        openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        openAppIntent.putExtra("numeroDetectado", numeroEntrando);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        NotificationCompat.Builder alertBuilder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+                .setContentTitle("🚨 CHAMADA DETECTADA!")
+                .setContentText("Número: " + numeroEntrando)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(Notification.DEFAULT_ALL)
+                .setAutoCancel(true)
+                .addAction(android.R.drawable.ic_menu_view, "Portaria Online", pendingIntent)
+                .setFullScreenIntent(pendingIntent, false); // Força exibição do Banner Pop-up no topo
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(ALERT_NOTIF_ID, alertBuilder.build());
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (callReceiver != null) {
+            unregisterReceiver(callReceiver);
+        }
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
     }
 }
