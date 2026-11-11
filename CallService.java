@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
@@ -80,7 +81,9 @@ public class CallService extends Service {
                     String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
 
                     if (TelephonyManager.EXTRA_STATE_RINGING.equals(state) && incomingNumber != null) {
-                        dispararNotificacaoBanner(context, incomingNumber);
+                        if (isNumeroAlvo(context, incomingNumber)) {
+                            dispararNotificacaoBanner(context, incomingNumber);
+                        }
                     }
                 }
             }
@@ -89,6 +92,20 @@ public class CallService extends Service {
         IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
         registerReceiver(callReceiver, filter);
+    }
+
+    private boolean isNumeroAlvo(Context context, String numeroChegando) {
+        SharedPreferences prefs = context.getSharedPreferences("PortariaPrefs", Context.MODE_PRIVATE);
+        String numeroSalvo = prefs.getString("numero_alvo", "");
+        
+        if (numeroSalvo == null || numeroSalvo.trim().isEmpty()) {
+            return false; // Se nenhum número foi salvo, ignora chamadas para evitar falsos alarmes
+        }
+
+        String limpoChegando = numeroChegando.replaceAll("[^0-9]", "");
+        String limpoSalvo = numeroSalvo.replaceAll("[^0-9]", "");
+
+        return limpoChegando.contains(limpoSalvo) || limpoSalvo.contains(limpoChegando);
     }
 
     private void dispararNotificacaoBanner(Context context, String numeroEntrando) {
@@ -104,7 +121,7 @@ public class CallService extends Service {
         );
 
         NotificationCompat.Builder alertBuilder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                .setContentTitle("🚨 CHAMADA DETECTADA!")
+                .setContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!")
                 .setContentText("Número: " + numeroEntrando)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -113,7 +130,10 @@ public class CallService extends Service {
                 .addAction(android.R.drawable.ic_menu_view, "Portaria Online", pendingIntent)
                 .setFullScreenIntent(pendingIntent, false);
 
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.MANAGER_SERVICE);
+        if (manager == null) {
+            manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        }
         if (manager != null) {
             manager.notify(ALERT_NOTIF_ID, alertBuilder.build());
         }
