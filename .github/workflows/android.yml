@@ -45,11 +45,15 @@ jobs:
           [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
           [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
 
-      - name: 8. Injetar Permissoes
+      - name: 8. Injetar Permissoes e Servico no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />' "$MANIFEST_PATH"
+            # Injeta permissoes de telefonia e serviço em segundo plano
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' "$MANIFEST_PATH"
+            
+            # Declara o CallService no elemento application
+            sed -i '/<\/application>/i \        <service android:name="com.control.door.portaria.CallService" android:enabled="true" android:exported="false" android:foregroundServiceType="phoneCall" \/>' "$MANIFEST_PATH"
           fi
 
       - name: 9. Gerar APK Debug
