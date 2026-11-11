@@ -55,9 +55,7 @@ jobs:
 
       - name: 9. Gerar APK Debug
         run: |
-          GRADLEW_PATH=$(find android -name gradlew)
-          GRADLE_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$GRADLE_DIR"
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
