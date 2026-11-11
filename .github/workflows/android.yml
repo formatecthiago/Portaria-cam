@@ -43,6 +43,7 @@ jobs:
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
+          [ -f "MainActivity.java" ] && cp MainActivity.java "$MainActivity.java" 2>/dev/null || true
           [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
 
       - name: 8. Injetar Permissoes e Servico no AndroidManifest.xml
