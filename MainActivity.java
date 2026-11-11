@@ -17,7 +17,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Solicita todas as permissões críticas de imediato na inicialização
+        // Solicita todas as permissões críticas logo na inicialização
         verificarESolicitarPermissoes();
         
         // Inicia o serviço de escuta em segundo plano
