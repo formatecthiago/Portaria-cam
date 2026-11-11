@@ -38,7 +38,7 @@ jobs:
           npx cap add android || echo "Ja existe"
           npx cap sync android
 
-      - name: 7. Copiar Arquivos Nativos e Animação
+      - name: 7. Copiar Arquivos Nativos e Identidade Visual
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
@@ -47,7 +47,7 @@ jobs:
 
           RES_DIR="android/app/src/main/res"
           mkdir -p "$RES_DIR/drawable"
-          [ -f "police_flashing_dot.xml" ] && cp police_flashing_dot.xml "$RES_DIR/drawable/police_flashing_dot.xml"
+          [ -f "ic_portaria_sinaleira.xml" ] && cp ic_portaria_sinaleira.xml "$RES_DIR/drawable/ic_portaria_sinaleira.xml"
 
       - name: 8. Injetar Permissoes e Servico no AndroidManifest.xml
         run: |
