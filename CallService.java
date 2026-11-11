@@ -13,7 +13,6 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
-import android.widget.RemoteViews;
 import androidx.core.app.NotificationCompat;
 
 public class CallService extends Service {
@@ -49,11 +48,11 @@ public class CallService extends Service {
                 
                 NotificationChannel alertChannel = new NotificationChannel(
                         ALERT_CHANNEL_ID,
-                        "🚨 PORTARIA - ALERTA VERMELHO/AZUL",
+                        "🚨 ALERTA MÁXIMO PORTARIA",
                         NotificationManager.IMPORTANCE_HIGH
                 );
                 alertChannel.enableVibration(true);
-                alertChannel.setVibrationPattern(new long[]{0, 500, 100, 500, 100, 500});
+                alertChannel.setVibrationPattern(new long[]{0, 600, 200, 600, 200, 600});
                 alertChannel.enableLights(true);
                 alertChannel.setLightColor(Color.RED);
                 alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -66,8 +65,8 @@ public class CallService extends Service {
 
     private Notification buildForegroundNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Portaria Ativa")
-                .setContentText("Monitorando chamadas...")
+                .setContentTitle("🛡️ Portaria Ativa")
+                .setContentText("Monitorando chamadas em segundo plano...")
                 .setSmallIcon(android.R.drawable.ic_menu_call)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
@@ -85,7 +84,7 @@ public class CallService extends Service {
                     String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
 
                     if (TelephonyManager.EXTRA_STATE_RINGING.equals(state) && incomingNumber != null) {
-                        dispararAlertaAgressivoComLayout(context, incomingNumber);
+                        dispararAlertaAgressivo(context, incomingNumber);
                     }
                 }
             }
@@ -96,7 +95,7 @@ public class CallService extends Service {
         registerReceiver(callReceiver, filter);
     }
 
-    private void dispararAlertaAgressivoComLayout(Context context, String numeroEntrando) {
+    private void dispararAlertaAgressivo(Context context, String numeroEntrando) {
         Intent openAppIntent = new Intent(context, MainActivity.class);
         openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         openAppIntent.putExtra("numeroDetectado", numeroEntrando);
@@ -108,20 +107,19 @@ public class CallService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        // Layout customizado com cores cheias e chamativas
-        RemoteViews customNotificationLayout = new RemoteViews(context.getPackageName(), R.layout.notification_alert);
-        customNotificationLayout.setTextViewText(R.id.textNumero, "Número: " + numeroEntrando + " - TOQUE PARA ABRIR");
-
         NotificationCompat.Builder alertBuilder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_warning)
-                .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
-                .setCustomContentView(customNotificationLayout)
-                .setCustomBigContentView(customNotificationLayout)
+                .setContentTitle("🔴🔵 CHAMADA DETECTADA NO ALVO!")
+                .setContentText("Número: " + numeroEntrando)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🚨 ATENÇÃO! Chamada recebida do número: " + numeroEntrando + "\nToque abaixo para abrir o painel imediatamente!"))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setAutoCancel(false)
                 .setOngoing(true)
+                .setColor(Color.RED)
+                .addAction(android.R.drawable.ic_menu_view, "👁️ VER PORTARIA ONLINE", pendingIntent)
                 .setContentIntent(pendingIntent);
 
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
