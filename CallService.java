@@ -64,10 +64,13 @@ public class CallService extends Service {
     }
 
     private Notification buildForegroundNotification() {
+        int iconRes = getResources().getIdentifier("ic_portaria_sinaleira", "drawable", getPackageName());
+        if (iconRes == 0) iconRes = android.R.drawable.ic_menu_call;
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("🛡️ Portaria Ativa")
                 .setContentText("Monitorando chamadas em segundo plano...")
-                .setSmallIcon(android.R.drawable.ic_menu_call)
+                .setSmallIcon(iconRes)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .build();
@@ -107,12 +110,15 @@ public class CallService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        int iconRes = context.getResources().getIdentifier("ic_portaria_sinaleira", "drawable", context.getPackageName());
+        if (iconRes == 0) iconRes = android.R.drawable.stat_sys_warning;
+
         NotificationCompat.Builder alertBuilder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_warning)
+                .setSmallIcon(iconRes)
                 .setContentTitle("🔴🔵 CHAMADA DETECTADA NO ALVO!")
                 .setContentText("Número: " + numeroEntrando)
                 .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText("🚨 ATENÇÃO! Chamada recebida do número: " + numeroEntrando + "\nToque abaixo para abrir o painel imediatamente!"))
+                        .bigText("🚨 ATENÇÃO! Chamada recebida do número: " + numeroEntrando + "\nToque em 'VER PORTARIA ONLINE' para abrir o painel imediatamente!"))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setDefaults(Notification.DEFAULT_ALL)
