@@ -38,16 +38,17 @@ jobs:
           npx cap add android || echo "Ja existe"
           npx cap sync android
 
-      - name: 7. Copiar Arquivos Nativos e Identidade Visual
+      - name: 7. Copiar Arquivos Nativos e Aplicar Icone SVG
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
           [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
 
+          # Copia o ic_launcher.svg para os recursos drawable do Android
           RES_DIR="android/app/src/main/res"
           mkdir -p "$RES_DIR/drawable"
-          [ -f "ic_portaria_sinaleira.xml" ] && cp ic_portaria_sinaleira.xml "$RES_DIR/drawable/ic_portaria_sinaleira.xml"
+          [ -f "ic_launcher.svg" ] && cp ic_launcher.svg "$RES_DIR/drawable/ic_launcher.svg"
 
       - name: 8. Injetar Permissoes e Servico no AndroidManifest.xml
         run: |
