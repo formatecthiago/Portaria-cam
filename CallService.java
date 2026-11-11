@@ -99,7 +99,7 @@ public class CallService extends Service {
         String numeroSalvo = prefs.getString("numero_alvo", "");
         
         if (numeroSalvo == null || numeroSalvo.trim().isEmpty()) {
-            return false; // Se nenhum número foi salvo, ignora chamadas para evitar falsos alarmes
+            return false;
         }
 
         String limpoChegando = numeroChegando.replaceAll("[^0-9]", "");
@@ -130,7 +130,7 @@ public class CallService extends Service {
                 .addAction(android.R.drawable.ic_menu_view, "Portaria Online", pendingIntent)
                 .setFullScreenIntent(pendingIntent, false);
 
-        // Corrigido para Context.NOTIFICATION_SERVICE
+        // CORREÇÃO DEFINITIVA APLICADA: Context.NOTIFICATION_SERVICE
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.notify(ALERT_NOTIF_ID, alertBuilder.build());
