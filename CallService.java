@@ -39,14 +39,12 @@ public class CallService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
-                // Canal silencioso para manter o serviço ativo em segundo plano
                 NotificationChannel serviceChannel = new NotificationChannel(
                         CHANNEL_ID,
                         "Serviço de Escuta da Portaria",
                         NotificationManager.IMPORTANCE_LOW
                 );
                 
-                // Canal de alta prioridade para o Alerta de Chamada
                 NotificationChannel alertChannel = new NotificationChannel(
                         ALERT_CHANNEL_ID,
                         "Alertas de Chamada da Portaria",
