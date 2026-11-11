@@ -38,21 +38,24 @@ jobs:
           npx cap add android || echo "Ja existe"
           npx cap sync android
 
-      - name: 7. Copiar Arquivos Nativos
+      - name: 7. Copiar Arquivos Nativos e Layouts
         run: |
           JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
           mkdir -p "$JAVA_DIR"
           [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
           [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
 
+          RES_DIR="android/app/src/main/res"
+          mkdir -p "$RES_DIR/layout"
+          mkdir -p "$RES_DIR/drawable"
+          [ -f "notification_alert.xml" ] && cp notification_alert.xml "$RES_DIR/layout/notification_alert.xml"
+          [ -f "flashing_circle.xml" ] && cp flashing_circle.xml "$RES_DIR/drawable/flashing_circle.xml"
+
       - name: 8. Injetar Permissoes e Servico no AndroidManifest.xml
         run: |
           MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
           if [ -f "$MANIFEST_PATH" ]; then
-            # Injeta permissoes de telefonia e serviço em segundo plano
             sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' "$MANIFEST_PATH"
-            
-            # Declara o CallService no elemento application
             sed -i '/<\/application>/i \        <service android:name="com.control.door.portaria.CallService" android:enabled="true" android:exported="false" android:foregroundServiceType="phoneCall" \/>' "$MANIFEST_PATH"
           fi
 
