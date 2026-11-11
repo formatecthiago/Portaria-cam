@@ -38,14 +38,26 @@
         box.innerHTML += `[${hora}] ${mensagem}<br>`;
         box.scrollTop = box.scrollHeight;
     }
+
     function salvarNumero() {
         const num = document.getElementById('inputNumero').value.trim();
         if(num) {
             localStorage.setItem('numeroAlvo', num);
+            
+            // Grava também nas preferências nativas do Android para o CallService ler em segundo plano
+            try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
+                    window.AndroidBridge.salvarNumeroNativo(num);
+                }
+            } catch (e) {
+                console.log("Bridge nativa não disponível no navegador web puro.");
+            }
+
             log(`Número salvo com sucesso: ${num}`);
             alert('Número salvo!');
         } else { alert('Digite um número válido.'); }
     }
+
     window.onload = function() {
         log("App carregado em primeiro plano.");
         const salvo = localStorage.getItem('numeroAlvo');
@@ -54,6 +66,7 @@
             log(`Número recuperado do Storage: ${salvo}`);
         } else { log("Nenhum número salvo anteriormente."); }
     };
+
     function processarChamada(numeroChegando) {
         log(`🚨 CHAMADA DETECTADA DO NÚMERO: ${numeroChegando}`);
         const alvoSalvo = localStorage.getItem('numeroAlvo') || '';
@@ -65,12 +78,14 @@
             document.body.style.backgroundColor = '#b71c1c';
         }
     }
+
     function simularChamadaEntrando() {
         const alvoSalvo = localStorage.getItem('numeroAlvo');
         if(!alvoSalvo) { alert('Salve um número alvo primeiro!'); return; }
         log("--- SIMULAÇÃO ACIONADA MANUALMENTE ---");
         processarChamada(alvoSalvo);
     }
+
     function onChamadaDetectadaDoNativo(numeroReal) { processarChamada(numeroReal); }
 </script>
 </body>
