@@ -120,17 +120,24 @@ public class CallService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        String mensagemCompleta = "O número alvo " + numeroEntrando + " acabou de ligar para a portaria. Toque abaixo para abrir o sistema online.";
+
+        NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle()
+                .bigText(mensagemCompleta)
+                .setBigContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!");
+
         NotificationCompat.Builder alertBuilder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
                 .setContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!")
                 .setContentText("Número: " + numeroEntrando)
+                .setStyle(bigTextStyle)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setAutoCancel(true)
-                .addAction(android.R.drawable.ic_menu_view, "Portaria Online", pendingIntent)
+                .addAction(android.R.drawable.ic_menu_view, "Abrir Portaria", pendingIntent)
                 .setFullScreenIntent(pendingIntent, false);
 
-        // CORREÇÃO DEFINITIVA APLICADA: Context.NOTIFICATION_SERVICE
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.notify(ALERT_NOTIF_ID, alertBuilder.build());
