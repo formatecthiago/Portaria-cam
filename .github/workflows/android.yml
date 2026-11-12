@@ -1,58 +1,48 @@
-name: Build Android APK MVP
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+    <!-- Permissões Críticas e de Hardware essenciais -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+    <!-- Permissões de Notificação e Segundo Plano -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    
+    <!-- Permissão Especial de Sobreposição de Tela -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    steps:
-      - name: 1. Checkout do Repositorio
-        uses: actions/checkout@v4
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
 
-      - name: 2. Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+        <activity
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-      - name: 3. Configurar Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
+        <!-- Declaração Oficial do Serviço de Chamadas em Segundo Plano -->
+        <service
+            android:name="com.control.door.portaria.CallService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
 
-      - name: 4. Instalar Dependencias
-        run: |
-          npm install
+    </application>
 
-      - name: 5. Estruturar Pasta Web
-        run: |
-          mkdir -p www
-          cp -r index.html package.json capacitor.config.json www/ 2>/dev/null || true
-
-      - name: 6. Sincronizar Android
-        run: |
-          npx cap add android || echo "Ja existe"
-          npx cap sync android
-
-      - name: 7. Copiar Arquivos Nativos
-        run: |
-          JAVA_DIR="android/app/src/main/java/com/control/door/portaria"
-          mkdir -p "$JAVA_DIR"
-          [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
-          [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
-
-      - name: 8. Gerar APK Debug
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-
-      - name: 9. Salvar Artefato APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Portaria-MVP-APK
-          path: "**/app-debug.apk"
+</manifest>
