@@ -63,7 +63,7 @@ public class CallService extends Service {
     private Notification buildForegroundNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Portaria Ativa")
-                .setContentText("Monitorando chamadas em segundo plano...")
+                .setContentText("Monitorando chamadas e pronto para testes...")
                 .setSmallIcon(android.R.drawable.ic_menu_call)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
@@ -108,7 +108,8 @@ public class CallService extends Service {
         return limpoChegando.contains(limpoSalvo) || limpoSalvo.contains(limpoChegando);
     }
 
-    private void dispararNotificacaoBanner(Context context, String numeroEntrando) {
+    // Método centralizado para disparar o banner flutuante
+    public static void dispararNotificacaoBanner(Context context, String numeroEntrando) {
         Intent openAppIntent = new Intent(context, MainActivity.class);
         openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         openAppIntent.putExtra("numeroDetectado", numeroEntrando);
@@ -120,7 +121,7 @@ public class CallService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        String mensagemCompleta = "O número alvo " + numeroEntrando + " acabou de ligar para a portaria. Toque abaixo para abrir o sistema online.";
+        String mensagemCompleta = "O número alvo " + numeroEntrando + " acabou de acionar a portaria. Toque abaixo para abrir o sistema online.";
 
         NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle()
                 .bigText(mensagemCompleta)
