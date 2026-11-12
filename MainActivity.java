@@ -7,9 +7,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
-import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
@@ -21,11 +22,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Verifica e solicita permissões necessárias em tempo de execução
         verificarESolicitarPermissoes();
-
-        // Inicia o serviço de escuta de chamadas em segundo plano
         iniciarServicoChamada();
     }
 
@@ -70,7 +67,6 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    // Configuração da Bridge para interagir com o JavaScript do index.html
     @Override
     public void onStart() {
         super.onStart();
@@ -93,6 +89,18 @@ public class MainActivity extends BridgeActivity {
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString("numero_alvo", numero);
             editor.apply();
+        }
+
+        @JavascriptInterface
+        public void simularChamadaComAtraso(final String numero) {
+            // Conta 10 segundos (10000ms) de forma nativa e segura em background,
+            // garantindo que mesmo se você bloquear a tela, o banner vai estourar!
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    CallService.dispararNotificacaoBanner(mContext, numero);
+                }
+            }, 10000);
         }
     }
 }
