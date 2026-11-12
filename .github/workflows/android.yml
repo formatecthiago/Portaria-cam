@@ -1,4 +1,4 @@
-Name: Build Android APK MVP
+name: Build Android APK MVP
 
 on:
   push:
