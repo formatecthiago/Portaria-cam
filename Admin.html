@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portaria - Painel Administrativo</title>
+    <style>
+        body { background-color: #121212; color: #00ff00; font-family: monospace, Arial, sans-serif; padding: 15px; margin: 0; }
+        h2, h3 { color: #00ffcc; text-align: center; text-transform: uppercase; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
+        input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 10px; background: #2d2d2d; border: 1px solid #00ffcc; color: #fff; border-radius: 4px; box-sizing: border-box; text-align: center; font-size: 1.2rem; letter-spacing: 2px; }
+        button { width: 100%; padding: 12px; background: #00ff00; color: #121212; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; text-transform: uppercase; }
+        button:hover { background: #00cc00; }
+        .btn-critico { background: #ff4757; color: #fff; }
+        .btn-pendente { background: #eccc68; color: #121212; }
+        
+        #loginSection, #adminPanel { display: none; }
+        
+        /* Tabela / Lista de Histórico */
+        .log-item { background: #1a1a1a; border-left: 5px solid #00ff00; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .log-item.critico { border-left-color: #ff4757; }
+        .log-info { flex: 1; font-size: 0.85rem; color: #ccc; }
+        .log-info strong { color: #00ffcc; }
+        
+        .thumbnail { width: 70px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #444; cursor: pointer; transition: transform 0.2s; }
+        .thumbnail:hover { transform: scale(1.05); border-color: #00ffcc; }
+
+        /* Modal de Ampliação de Imagem */
+        #modalZoom { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 999; align-items: center; justify-content: center; flex-direction: column; }
+        #modalZoom img { max-width: 90%; max-height: 80%; border: 2px solid #00ffcc; border-radius: 8px; }
+        #modalZoom button { width: auto; padding: 8px 20px; margin-top: 15px; }
+
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; }
+        .badge-ok { background: #00ff00; color: #121212; }
+        .badge-critico { background: #ff4757; color: #fff; }
+    </style>
+
+    <!-- Firebase SDKs Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN DO ADMIN -->
+    <div id="loginSection" class="card" style="max-width: 400px; margin: 50px auto;">
+        <h2>Admin - Acesso Restrito</h2>
+        <p style="text-align: center; font-size: 0.8rem; color: #aaa; margin-bottom: 15px;">Digite a senha de uso (6 dígitos)</p>
+        <input type="password" id="inputSenhaLogin" maxlength="6" placeholder="------">
+        <button onclick="tentarLogin()">Entrar no Painel</button>
+        <button class="btn-pendente" onclick="mostrarRecuperacao()" style="margin-top: 10px;">Esqueci a Senha (Senha Mestre)</button>
+    </div>
+
+    <!-- TELA DE RECUPERAÇÃO / TROCA COM SENHA MESTRE -->
+    <div id="recoverySection" class="card" style="display:none; max-width: 400px; margin: 50px auto;">
+        <h2>Redefinir Senha</h2>
+        <label>Senha Mestre (6 dígitos):</label>
+        <input type="password" id="inputSenhaMestre" maxlength="6" placeholder="Mestre">
+        
+        <label>Nova Senha de Uso (6 dígitos):</label>
+        <input type="password" id="inputNovaSenha" maxlength="6" placeholder="Nova">
+        
+        <label>Confirme a Nova Senha:</label>
+        <input type="password" id="inputConfirmaSenha" maxlength="6" placeholder="Confirme">
+        
+        <button onclick="redefinirSenhaUso()">Salvar Nova Senha</button>
+        <button class="btn-critico" onclick="voltarLogin()" style="margin-top: 10px;">Cancelar</button>
+    </div>
+
+    <!-- PAINEL ADMINISTRATIVO REAL -->
+    <div id="adminPanel">
+        <h2>Painel Admin - Histórico</h2>
+        
+        <div class="card">
+            <label>🔍 Pesquisar por Número da Casa / Alvo:</label>
+            <input type="text" id="inputPesquisa" placeholder="Ex: Casa 11" oninput="filtrarHistorico()" style="text-align: left; letter-spacing: normal;">
+        </div>
+
+        <div class="card">
+            <h3>Visitas Registradas</h3>
+            <div id="listaHistorico">Carregando registros...</div>
+        </div>
+
+        <button class="btn-critico" onclick="fazerLogout()">Sair do Painel</button>
+    </div>
+
+    <!-- MODAL DE ZOOM DA IMAGEM -->
+    <div id="modalZoom" onclick="fecharZoom()">
+        <img id="imgZoomLargura" src="" alt="Ampliado">
+        <button class="btn-critico">Fechar X</button>
+    </div>
+
+<script>
+    // Configuração do Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
+        databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
+    };
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const database = firebase.database();
+
+    const SENHA_MESTRE_FIXA = "172812";
+    let historicoGlobal = [];
+
+    // Gerenciamento de Senhas no LocalStorage
+    function getSenhaUso() {
+        return localStorage.getItem('senhaAdminUso') || "123456"; // Senha padrão inicial de 6 dígitos se não configurada
+    }
+
+    window.onload = function() {
+        // Verifica se já estava logado na sessão
+        if(sessionStorage.getItem('adminLogado') === 'true') {
+            abrirPainelAdmin();
+        } else {
+            document.getElementById('loginSection').style.display = 'block';
+        }
+    };
+
+    function tentarLogin() {
+        const digitada = document.getElementById('inputSenhaLogin').value.trim();
+        if (digitada === getSenhaUso()) {
+            sessionStorage.setItem('adminLogado', 'true');
+            abrirPainelAdmin();
+        } else {
+            alert("❌ Senha incorreta!");
+            document.getElementById('inputSenhaLogin').value = "";
+        }
+    }
+
+    function mostrarRecuperacao() {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('recoverySection').style.display = 'block';
+    }
+
+    function voltarLogin() {
+        document.getElementById('recoverySection').style.display = 'none';
+        document.getElementById('loginSection').style.display = 'block';
+    }
+
+    function redefinirSenhaUso() {
+        const mestre = document.getElementById('inputSenhaMestre').value.trim();
+        const nova = document.getElementById('inputNovaSenha').value.trim();
+        const confirma = document.getElementById('inputConfirmaSenha').value.trim();
+
+        if (mestre !== SENHA_MESTRE_FIXA) {
+            alert("❌ Senha Mestre inválida!");
+            return;
+        }
+
+        if (nova.length !== 6) {
+            alert("⚠️ A nova senha de uso deve conter exatamente 6 dígitos.");
+            return;
+        }
+
+        if (nova !== confirma) {
+            alert("⚠️ As senhas novas não coincidem.");
+            return;
+        }
+
+        localStorage.setItem('senhaAdminUso', nova);
+        alert("✅ Senha de uso alterada com sucesso!");
+        voltarLogin();
+    }
+
+    function abrirPainelAdmin() {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('recoverySection').style.display = 'none';
+        document.getElementById('adminPanel').style.display = 'block';
+        carregarHistoricoFirebase();
+    }
+
+    function fazerLogout() {
+        sessionStorage.removeItem('adminLogado');
+        document.getElementById('adminPanel').style.display = 'none';
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('inputSenhaLogin').value = "";
+    }
+
+    // Carregar dados do Firebase com padrão de cores (Verde/Amarelo/Vermelho/Cinza)
+    function carregarHistoricoFirebase() {
+        const listaDiv = document.getElementById('listaHistorico');
+        listaDiv.innerHTML = "Buscando dados no Firebase...";
+
+        database.ref('historico_chamadas').orderByChild('timestamp').on('value', (snapshot) => {
+            historicoGlobal = [];
+            snapshot.forEach((childSnapshot) => {
+                let item = childSnapshot.val();
+                item.id = childSnapshot.key;
+                historicoGlobal.unshift(item); // Mais recentes primeiro
+            });
+
+            renderizarLista(historicoGlobal);
+        });
+    }
+
+    function renderizarLista(dados) {
+        const listaDiv = document.getElementById('listaHistorico');
+        if (dados.length === 0) {
+            listaDiv.innerHTML = "<span style='color: #eccc68;'>⚠️ Nenhuma visita registrada no momento.</span>";
+            return;
+        }
+
+        let html = '';
+        dados.forEach(item => {
+            html += `
+                <div class="log-item">
+                    <img src="${item.miniatura || 'https://via.placeholder.com/70'}" class="thumbnail" onclick="abrirZoom('${item.miniatura}')" title="Toque para ampliar">
+                    <div class="log-info">
+                        <strong>Casa/Alvo:</strong> ${item.casa || 'N/D'}<br>
+                        <strong>Telefone:</strong> ${item.numeroTelefone || 'N/D'}<br>
+                        🕒 ${item.data} às ${item.hora}
+                    </div>
+                    <div>
+                        <span class="status-badge badge-ok">OK</span>
+                    </div>
+                </div>
+            `;
+        });
+        listaDiv.innerHTML = html;
+    }
+
+    function filtrarHistorico() {
+        const termo = document.getElementById('inputPesquisa').value.toLowerCase().trim();
+        if (!termo) {
+            renderizarLista(historicoGlobal);
+            return;
+        }
+
+        const filtrado = historicoGlobal.filter(item => 
+            (item.casa && item.casa.toLowerCase().includes(termo)) ||
+            (item.numeroTelefone && item.numeroTelefone.includes(termo))
+        );
+
+        renderizarLista(filtrado);
+    }
+
+    function abrirZoom(urlImagem) {
+        if (!urlImagem) return;
+        document.getElementById('imgZoomLargura').src = urlImagem;
+        document.getElementById('modalZoom').style.display = 'flex';
+    }
+
+    function fecharZoom() {
+        document.getElementById('modalZoom').style.display = 'none';
+    }
+</script>
+</body>
+</html>
