@@ -14,6 +14,9 @@ import android.os.Build;
 import android.os.IBinder;
 import android.telephony.TelephonyManager;
 import androidx.core.app.NotificationCompat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class CallService extends Service {
 
@@ -51,7 +54,8 @@ public class CallService extends Service {
                         "Alertas de Chamada da Portaria",
                         NotificationManager.IMPORTANCE_HIGH
                 );
-                alertChannel.setVibrationPattern(new long[]{0, 500, 200, 500});
+                alertChannel.setDescription("Canal para alertas de chamadas urgentes com som e vibração");
+                alertChannel.setVibrationPattern(new long[]{0, 800, 400, 800});
                 alertChannel.enableVibration(true);
 
                 manager.createNotificationChannel(serviceChannel);
@@ -108,6 +112,7 @@ public class CallService extends Service {
         return limpoChegando.contains(limpoSalvo) || limpoSalvo.contains(limpoChegando);
     }
 
+    // Método centralizado para disparar o banner flutuante personalizado
     public static void dispararNotificacaoBanner(Context context, String numeroEntrando) {
         Intent openAppIntent = new Intent(context, MainActivity.class);
         openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -120,22 +125,27 @@ public class CallService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        String mensagemCompleta = "O número alvo " + numeroEntrando + " acabou de acionar a portaria. Toque abaixo para abrir o sistema online.";
+        // Captura data e hora formatada
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault);
+        String dataHoraAtual = sdf.format(new Date());
+
+        // Mensagem detalhada com o rodapé em formato menor/destacado
+        String mensagemCompleta = "Número: " + numeroEntrando + "\n🕒 " + dataHoraAtual;
 
         NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle()
                 .bigText(mensagemCompleta)
-                .setBigContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!");
+                .setBigContentTitle("Portaria chamando");
 
         NotificationCompat.Builder alertBuilder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                .setContentTitle("🚨 CHAMADA DA PORTARIA DETECTADA!")
-                .setContentText("Número: " + numeroEntrando)
+                .setContentTitle("Portaria chamando")
+                .setContentText("Número: " + numeroEntrando + " | " + dataHoraAtual)
                 .setStyle(bigTextStyle)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setAutoCancel(true)
-                .addAction(android.R.drawable.ic_menu_view, "Abrir Portaria", pendingIntent)
+                .addAction(android.R.drawable.ic_menu_view, "Ver Câmera", pendingIntent)
                 .setFullScreenIntent(pendingIntent, false);
 
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
