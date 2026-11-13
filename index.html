@@ -25,7 +25,7 @@
     </div>
     <div class="card">
         <label>Área de Teste / Simulação:</label>
-        <button class="btn-simular" onclick="simularChamadaEntrando()">📲 Simular Chamada Chegando</button>
+        <button class="btn-simular" onclick="simularChamadaEntrando()">📲 Simular Chamada (Com Atraso de 10s)</button>
     </div>
     <div class="card">
         <label>Log de Atividade em Tempo Real:</label>
@@ -44,7 +44,6 @@
         if(num) {
             localStorage.setItem('numeroAlvo', num);
             
-            // Grava também nas preferências nativas do Android para o CallService ler em segundo plano
             try {
                 if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
                     window.AndroidBridge.salvarNumeroNativo(num);
@@ -80,10 +79,24 @@
     }
 
     function simularChamadaEntrando() {
-        const alvoSalvo = localStorage.getItem('numeroAlvo');
-        if(!alvoSalvo) { alert('Salve um número alvo primeiro!'); return; }
-        log("--- SIMULAÇÃO ACIONADA MANUALMENTE ---");
-        processarChamada(alvoSalvo);
+        const alvoSalvo = document.getElementById('inputNumero').value.trim() || localStorage.getItem('numeroAlvo');
+        if(!alvoSalvo) { alert('Salve ou digite um número alvo primeiro!'); return; }
+        
+        log("--- SIMULAÇÃO ACIONADA: AGUARDANDO 10s NO NATIVO ---");
+
+        // Dispara a ponte nativa Java que criamos com o timer de 10 segundos
+        try {
+            if (window.AndroidBridge && typeof window.AndroidBridge.simularChamadaComAtraso === 'function') {
+                window.AndroidBridge.simularChamadaComAtraso(alvoSalvo);
+                log("Comando enviado ao Android. Você tem 10 segundos para bloquear a tela!");
+            } else {
+                // Fallback caso esteja testando no navegador do PC
+                log("Aviso: AndroidBridge não encontrada. Executando simulação local.");
+                setTimeout(() => { processarChamada(alvoSalvo); }, 10000);
+            }
+        } catch (e) {
+            log("Erro ao acionar a ponte nativa: " + e.message);
+        }
     }
 
     function onChamadaDetectadaDoNativo(numeroReal) { processarChamada(numeroReal); }
