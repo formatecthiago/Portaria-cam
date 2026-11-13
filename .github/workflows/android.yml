@@ -2,7 +2,7 @@ name: Build Android APK MVP
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "portaria" ]
   workflow_dispatch:
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
       - name: 5. Estruturar Pasta Web
         run: |
           mkdir -p www
-          cp -r index.html package.json capacitor.config.json www/ 2>/dev/null || true
+          cp -r index.html admin.html package.json capacitor.config.json www/ 2>/dev/null || true
 
       - name: 6. Sincronizar Android
         run: |
