@@ -1,172 +1,396 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portaria - Versão 1.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Portaria ao vivo</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <style>
-        body { background-color: #121212; color: #ffffff; font-family: Arial, sans-serif; padding: 20px; margin: 0; transition: background-color 0.3s ease; }
-        h2 { color: #00ffcc; text-align: center; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 10px; background: #2d2d2d; border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #00b0ff; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; }
-        button:hover { background: #0091ea; }
-        .btn-simular { background: #ff9800; }
-        .btn-simular:hover { background: #f57c00; }
-        .video-wrapper { width: 100%; height: 180px; background: #000; border-radius: 6px; overflow: hidden; margin-top: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid #444; }
-        #frameImg { width: 100%; height: 100%; object-fit: cover; }
-        #logBox { background: #000; color: #00ff00; font-family: monospace; padding: 10px; height: 150px; overflow-y: auto; border-radius: 4px; font-size: 12px; border: 1px solid #333; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            background: #1e1e1e;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .btn-close-top {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff4757;
+            color: #ffffff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+        }
+
+        .btn-close-top:active { transform: scale(0.95); }
+
+        h2 {
+            font-size: 1.1rem;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            text-align: left;
+        }
+
+        /* Caixas de Configuração Separadas */
+        .config-box {
+            width: 100%;
+            background: #2a2a2a;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border: 1px solid #3d3d3d;
+        }
+
+        .config-box label {
+            font-size: 0.75rem;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: bold;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .config-row input {
+            flex: 1;
+            background: #121212;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .config-row button {
+            background: #00ff00;
+            color: #121212;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .config-row button:active { transform: scale(0.95); }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 5px;
+        }
+
+        #frameImg {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            image-rendering: -webkit-optimize-contrast;
+            display: block;
+        }
+
+        #pipCanvas, #pipVideo { display: none; }
+
+        .status-bar {
+            margin: 12px 0;
+            font-size: 0.85rem;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ff4757;
+        }
+
+        .status-dot.online { background-color: #00ff88; box-shadow: 0 0 8px #00ff88; }
+        .status-dot.repouso { background-color: #eccc68; box-shadow: 0 0 8px #eccc68; }
+
+        .btn-action {
+            width: 100%;
+            padding: 14px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #121212;
+            background: #00ff00;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,255,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 5px;
+        }
+
+        .btn-action:active { transform: scale(0.98); }
     </style>
 
-    <!-- Firebase SDKs Compat -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
-    <h2>PORTARIA - V1.1</h2>
-    
-    <div class="card">
-        <label>Número da Casa / Identificação (Alvo):</label>
-        <input type="text" id="inputNumero" placeholder="Ex: Casa 11 ou 84988509817">
-        <button onclick="salvarNumero()">Salvar Configuração</button>
-    </div>
 
-    <div class="card">
-        <label>Câmera ao Vivo (Stream / Teste):</label>
-        <div class="video-wrapper">
-            <img id="frameImg" src="https://picsum.photos/400/225" alt="Aguardando sinal da câmera...">
+    <div class="container">
+        <button class="btn-close-top" onclick="fecharTudo()">
+            ✖ Fechar
+        </button>
+
+        <h2>Portaria ao vivo</h2>
+
+        <!-- CAMPO 1: Número da Casa (Para o Admin / Histórico) -->
+        <div class="config-box">
+            <label for="inputCasa">Número da Casa (Ex: Casa 08):</label>
+            <div class="config-row">
+                <input type="text" id="inputCasa" placeholder="Ex: Casa 08">
+                <button onclick="salvarConfiguracoes()">Salvar</button>
+            </div>
         </div>
+
+        <!-- CAMPO 2: Número de Telefone Alvo (Para o APK detectar a chamada) -->
+        <div class="config-box">
+            <label for="inputTelefone">Número de Telefone Alvo (Portaria):</label>
+            <div class="config-row">
+                <input type="tel" id="inputTelefone" placeholder="Ex: 084988040811">
+                <button onclick="salvarConfiguracoes()">Salvar</button>
+            </div>
+        </div>
+
+        <div class="video-wrapper">
+            <img id="frameImg" src="https://picsum.photos/400/225" alt="Buscando sinal da portaria...">
+            <canvas id="pipCanvas" width="400" height="225"></canvas>
+            <video id="pipVideo" autoplay playsinline muted></video>
+        </div>
+
+        <div class="status-bar">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusTxt">Aguardando chamada...</span>
+        </div>
+
+        <button id="btnPip" class="btn-action" onclick="togglePip()">
+            📺 Ativar Janela Flutuante
+        </button>
     </div>
 
-    <div class="card">
-        <label>Área de Teste / Simulação:</label>
-        <button class="btn-simular" onclick="simularChamadaEntrando()">📲 Simular Chamada (Com Atraso de 10s)</button>
-    </div>
-
-    <div class="card">
-        <label>Log de Atividade em Tempo Real:</label>
-        <div id="logBox">Iniciando sistema v1.1...</div>
-    </div>
-
-<script>
-    // Configuração do Firebase (Baseada no projeto anterior)
-    const firebaseConfig = {
-        apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
-        databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
-    };
-
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    const database = firebase.database();
-
-    function log(mensagem) {
-        const box = document.getElementById('logBox');
-        const hora = new Date().toLocaleTimeString();
-        box.innerHTML += `[${hora}] ${mensagem}<br>`;
-        box.scrollTop = box.scrollHeight;
-    }
-
-    // Escuta em tempo real o streaming da câmera (compatível com celular ou ESP32)
-    database.ref('camera/stream/portaria').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.imagem) {
-            document.getElementById('frameImg').src = data.imagem;
-        }
-    });
-
-    function salvarNumero() {
-        const num = document.getElementById('inputNumero').value.trim();
-        if(num) {
-            localStorage.setItem('numeroAlvo', num);
+    <script>
+        // Carrega as configurações salvas ao abrir a página
+        window.addEventListener('DOMContentLoaded', () => {
+            const casaSalva = localStorage.getItem('numeroCasaAlvo') || "Casa 08";
+            const telSalvo = localStorage.getItem('numeroPortariaAlvo') || "084988040811";
             
-            try {
-                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
-                    window.AndroidBridge.salvarNumeroNativo(num);
+            document.getElementById('inputCasa').value = casaSalva;
+            document.getElementById('inputTelefone').value = telSalvo;
+        });
+
+        function salvarConfiguracoes() {
+            const novaCasa = document.getElementById('inputCasa').value.trim();
+            const novoTel = document.getElementById('inputTelefone').value.trim();
+
+            if (novaCasa && novoTel) {
+                localStorage.setItem('numeroCasaAlvo', novaCasa);
+                localStorage.setItem('numeroPortariaAlvo', novoTel);
+                
+                // Comunica com o nativo se necessário
+                try {
+                    if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
+                        window.AndroidBridge.salvarNumeroNativo(novoTel);
+                    }
+                } catch (e) {
+                    console.log("Bridge nativa não aplicada no web puro.");
                 }
-            } catch (e) {
-                console.log("Bridge nativa não disponível no navegador web puro.");
+
+                alert("Configurações salvas com sucesso!");
+            } else {
+                alert("Por favor, preencha ambos os campos (Casa e Telefone).");
             }
+        }
 
-            log(`Número/Casa salvo com sucesso: ${num}`);
-            alert('Configuração salva com sucesso!');
-        } else { alert('Digite uma identificação válida.'); }
-    }
-
-    window.onload = function() {
-        log("App carregado em primeiro plano.");
-        const salvo = localStorage.getItem('numeroAlvo');
-        if(salvo) {
-            document.getElementById('inputNumero').value = salvo;
-            log(`Identificação recuperada: ${salvo}`);
-        } else { log("⚠️ Atenção: Defina o número da casa/alvo antes de usar."); }
-    };
-
-    function registrarChamadaNoFirebase(numeroChegando) {
-        const casaAlvo = localStorage.getItem('numeroAlvo') || "Desconhecida";
-        const agora = new Date();
-        const dataFormatada = agora.toLocaleDateString('pt-BR');
-        const horaFormatada = agora.toLocaleTimeString('pt-BR');
-        
-        // Captura a imagem atual da tag img convertendo para base64/snapshot
-        const imgElement = document.getElementById('frameImg');
-        let imagemAtual = imgElement.src;
-
-        const dadosChamada = {
-            casa: casaAlvo,
-            numeroTelefone: numeroChegando,
-            data: dataFormatada,
-            hora: horaFormatada,
-            miniatura: imagemAtual,
-            timestamp: Date.now()
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
+            databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
         };
 
-        // Salva no nó de histórico do admin
-        database.ref('historico_chamadas').push(dadosChamada)
-            .then(() => {
-                log("✅ Registro de chamada e miniatura enviados ao Firebase com sucesso!");
-            })
-            .catch((error) => {
-                log("❌ Erro ao enviar para o Firebase: " + error.message);
-            });
-    }
-
-    function processarChamada(numeroChegando) {
-        log(`🚨 CHAMADA DETECTADA DO NÚMERO: ${numeroChegando}`);
-        const alvoSalvo = localStorage.getItem('numeroAlvo') || '';
-        
-        if (alvoSalvo && numeroChegando.includes(alvoSalvo)) {
-            log(`MATCH PERFEITO! Correspondente à casa: ${alvoSalvo}`);
-            document.body.style.backgroundColor = '#004d40';
-            
-            // Envia os dados para o Firebase para o Admin consultar depois
-            registrarChamadaNoFirebase(numeroChegando);
-        } else {
-            log(`Chamada ignorada (Não bate com o alvo: ${alvoSalvo})`);
-            document.body.style.backgroundColor = '#b71c1c';
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
         }
-    }
+        const database = firebase.database();
 
-    function simularChamadaEntrando() {
-        const alvoSalvo = document.getElementById('inputNumero'].value.trim() || localStorage.getItem('numeroAlvo');
-        if(!alvoSalvo) { alert('Salve ou digite um número/casa alvo primeiro!'); return; }
-        
-        log("--- SIMULAÇÃO ACIONADA: AGUARDANDO 10s NO NATIVO ---");
+        const frameImg = document.getElementById('frameImg');
+        const statusTxt = document.getElementById('statusTxt');
+        const statusDot = document.getElementById('statusDot');
+        const btnPip = document.getElementById('btnPip');
+        const pipCanvas = document.getElementById('pipCanvas');
+        const pipVideo = document.getElementById('pipVideo');
+        const ctx = pipCanvas.getContext('2d');
 
-        try {
-            if (window.AndroidBridge && typeof window.AndroidBridge.simularChamadaComAtraso === 'function') {
-                window.AndroidBridge.simularChamadaComAtraso(alvoSalvo);
-                log("Comando enviado ao Android. Bloqueie a tela para testar o fundo!");
+        let timerRepouso = null;
+
+        // ISOLAMENTO DA BRAND: Escutando exclusivamente o nó 'portaria' como no projeto antigo[span_4](start_span)[span_4](end_span)
+        database.ref('camera/stream/portaria').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.imagem) {
+                frameImg.src = data.imagem;
+                statusTxt.textContent = "Portaria: Transmissão Ativa (Ao Vivo)";
+                statusDot.className = "status-dot online";
+                atualizarCanvas();
+
+                clearTimeout(timerRepouso);
+                timerRepouso = setTimeout(() => {
+                    marcarComoInativo();
+                }, 3000); // 3 segundos de tolerância para repouso fluido
             } else {
-                log("Aviso: AndroidBridge não encontrada. Simulação local.");
-                setTimeout(() => { processarChamada(alvoSalvo); }, 10000);
+                marcarComoInativo();
             }
-        } catch (e) {
-            log("Erro ao acionar ponte nativa: " + e.message);
-        }
-    }
+        });
 
-    function onChamadaDetectadaDoNativo(numeroReal) { processarChamada(numeroReal); }
-</script>
+        function marcarComoInativo() {
+            statusTxt.textContent = "Portaria: Sem sinal / Repouso";
+            statusDot.className = "status-dot repouso";
+        }
+
+        function atualizarCanvas() {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(img, 0, 0, pipCanvas.width, pipCanvas.height);
+            };
+            img.src = frameImg.src;
+        }
+
+        // Função que registra a visita e a imagem atual no histórico do Admin quando a chamada ocorre
+        function registrarVisitaHistorico(numeroChegando) {
+            const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Casa Desconhecida";
+            const agora = new Date();
+            const dataFormatada = agora.toLocaleDateString('pt-BR');
+            const horaFormatada = agora.toLocaleTimeString('pt-BR');
+            const imagemAtual = frameImg.src;
+
+            const dadosVisita = {
+                casa: casaAlvo,
+                numeroTelefone: numeroChegando,
+                data: dataFormatada,
+                hora: horaFormatada,
+                miniatura: imagemAtual,
+                timestamp: Date.now()
+            };
+
+            database.ref('historico_chamadas').push(dadosVisita)
+                .then(() => {
+                    console.log("Visita registrada no Firebase para o Admin com sucesso!");
+                })
+                .catch((err) => {
+                    console.error("Erro ao registrar visita:", err);
+                });
+        }
+
+        async function togglePip() {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else {
+                    atualizarCanvas();
+                    const stream = pipCanvas.captureStream(10);
+                    pipVideo.srcObject = stream;
+                    await pipVideo.play();
+                    await pipVideo.requestPictureInPicture();
+                }
+            } catch (err) {
+                alert("O navegador não suporta a janela flutuante ou é necessária uma interação.");
+            }
+        }
+
+        async function fecharTudo() {
+            if (document.pictureInPictureElement) {
+                try {
+                    await document.exitPictureInPicture();
+                } catch (e) {
+                    console.log("Flutuante encerrado.");
+                }
+            }
+            window.location.href = "https://www.google.com";
+        }
+
+        pipVideo.addEventListener('enterpictureinpicture', () => {
+            btnPip.innerHTML = "❌ Encerrar Flutuante";
+        });
+
+        pipVideo.addEventListener('leavepictureinpicture', () => {
+            btnPip.innerHTML = "📺 Ativar Janela Flutuante";
+        });
+
+        // Evento disparado pelo nativo quando a chamada da portaria é identificada
+        window.addEventListener('portariaChamando', (e) => {
+            const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('numeroPortariaAlvo') || "Chamada");
+            console.log("Chamada da portaria identificada pelo app nativo!");
+            
+            // Ativa o PiP automaticamente
+            togglePip();
+
+            // Registra a visita com a imagem atual para o Admin
+            registrarVisitaHistorico(numDetectado);
+        });
+
+        // Função de compatibilidade caso o nativo chame diretamente
+        function onChamadaDetectadaDoNativo(numeroReal) {
+            const evento = new CustomEvent('portariaChamando', { detail: { numero: numeroReal } });
+            window.dispatchEvent(evento);
+        }
+    </script>
 </body>
 </html>
