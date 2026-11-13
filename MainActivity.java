@@ -13,6 +13,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
@@ -25,12 +26,15 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        verificarESolicitarPermissoes();
-        verificarPermissaoSobreposicao();
+        
+        // 1. Inicia solicitando APENAS as permissões comuns em lote na primeira abertura
+        verificarESolicitarPermissoesComuns();
+        
+        // 2. Inicia o serviço de escuta em segundo plano
         iniciarServicoChamada();
     }
 
-    private void verificarESolicitarPermissoes() {
+    private void verificarESolicitarPermissoesComuns() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             String[] permissoes;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -62,10 +66,10 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    private void verificarPermissaoSobreposicao() {
+    // Método chamado após o usuário lidar com as permissões comuns ou acionado por botão específico
+    private void verificarPermissaoSobreposicaoRestrita() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.canDrawOverlays(this)) {
-                // Direciona o usuário para a tela de configurações para ativar a sobreposição de forma segura
                 Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName()));
                 startActivityForResult(intent, OVERLAY_PERMISSION_REQ_CODE);
@@ -79,6 +83,21 @@ public class MainActivity extends BridgeActivity {
             startForegroundService(serviceIntent);
         } else {
             startService(serviceIntent);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            // Assim que o usuário responde às permissões comuns, podemos dar o próximo passo
+            // e solicitar a permissão restrita de sobreposição de forma limpa.
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    verificarPermissaoSobreposicaoRestrita();
+                }
+            }, 1000);
         }
     }
 
@@ -108,7 +127,6 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void simularChamadaComAtraso(final String numero) {
-            // Conta 10 segundos em background de forma nativa para permitir bloquear a tela com segurança
             new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
