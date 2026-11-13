@@ -112,7 +112,6 @@ public class CallService extends Service {
         return limpoChegando.contains(limpoSalvo) || limpoSalvo.contains(limpoChegando);
     }
 
-    // Método centralizado para disparar o banner flutuante personalizado
     public static void dispararNotificacaoBanner(Context context, String numeroEntrando) {
         Intent openAppIntent = new Intent(context, MainActivity.class);
         openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -125,11 +124,10 @@ public class CallService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        // Captura data e hora formatada
-        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault);
+        // Correção aplicada: Locale.getDefault() com parênteses
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
         String dataHoraAtual = sdf.format(new Date());
 
-        // Mensagem detalhada com o rodapé em formato menor/destacado
         String mensagemCompleta = "Número: " + numeroEntrando + "\n🕒 " + dataHoraAtual;
 
         NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle()
