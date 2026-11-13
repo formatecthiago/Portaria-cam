@@ -108,7 +108,6 @@ public class CallService extends Service {
         return limpoChegando.contains(limpoSalvo) || limpoSalvo.contains(limpoChegando);
     }
 
-    // Método centralizado para disparar o banner flutuante
     public static void dispararNotificacaoBanner(Context context, String numeroEntrando) {
         Intent openAppIntent = new Intent(context, MainActivity.class);
         openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
