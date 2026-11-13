@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portaria - MVP Detecção</title>
+    <title>Portaria - Versão 1.1</title>
     <style>
         body { background-color: #121212; color: #ffffff; font-family: Arial, sans-serif; padding: 20px; margin: 0; transition: background-color 0.3s ease; }
         h2 { color: #00ffcc; text-align: center; }
@@ -13,31 +13,67 @@
         button:hover { background: #0091ea; }
         .btn-simular { background: #ff9800; }
         .btn-simular:hover { background: #f57c00; }
-        #logBox { background: #000; color: #00ff00; font-family: monospace; padding: 10px; height: 200px; overflow-y: auto; border-radius: 4px; font-size: 12px; border: 1px solid #333; }
+        .video-wrapper { width: 100%; height: 180px; background: #000; border-radius: 6px; overflow: hidden; margin-top: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid #444; }
+        #frameImg { width: 100%; height: 100%; object-fit: cover; }
+        #logBox { background: #000; color: #00ff00; font-family: monospace; padding: 10px; height: 150px; overflow-y: auto; border-radius: 4px; font-size: 12px; border: 1px solid #333; }
     </style>
+
+    <!-- Firebase SDKs Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
-    <h2>PORTARIA - MVP DETECÇÃO</h2>
+    <h2>PORTARIA - V1.1</h2>
+    
     <div class="card">
-        <label>Número Alvo da Chamada:</label>
-        <input type="tel" id="inputNumero" placeholder="Ex: 84988509817">
-        <button onclick="salvarNumero()">Salvar Número Alvo</button>
+        <label>Número da Casa / Identificação (Alvo):</label>
+        <input type="text" id="inputNumero" placeholder="Ex: Casa 11 ou 84988509817">
+        <button onclick="salvarNumero()">Salvar Configuração</button>
     </div>
+
+    <div class="card">
+        <label>Câmera ao Vivo (Stream / Teste):</label>
+        <div class="video-wrapper">
+            <img id="frameImg" src="https://picsum.photos/400/225" alt="Aguardando sinal da câmera...">
+        </div>
+    </div>
+
     <div class="card">
         <label>Área de Teste / Simulação:</label>
         <button class="btn-simular" onclick="simularChamadaEntrando()">📲 Simular Chamada (Com Atraso de 10s)</button>
     </div>
+
     <div class="card">
         <label>Log de Atividade em Tempo Real:</label>
-        <div id="logBox">Iniciando sistema...</div>
+        <div id="logBox">Iniciando sistema v1.1...</div>
     </div>
+
 <script>
+    // Configuração do Firebase (Baseada no projeto anterior)
+    const firebaseConfig = {
+        apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
+        databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
+    };
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const database = firebase.database();
+
     function log(mensagem) {
         const box = document.getElementById('logBox');
         const hora = new Date().toLocaleTimeString();
         box.innerHTML += `[${hora}] ${mensagem}<br>`;
         box.scrollTop = box.scrollHeight;
     }
+
+    // Escuta em tempo real o streaming da câmera (compatível com celular ou ESP32)
+    database.ref('camera/stream/portaria').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.imagem) {
+            document.getElementById('frameImg').src = data.imagem;
+        }
+    });
 
     function salvarNumero() {
         const num = document.getElementById('inputNumero').value.trim();
@@ -52,9 +88,9 @@
                 console.log("Bridge nativa não disponível no navegador web puro.");
             }
 
-            log(`Número salvo com sucesso: ${num}`);
-            alert('Número salvo!');
-        } else { alert('Digite um número válido.'); }
+            log(`Número/Casa salvo com sucesso: ${num}`);
+            alert('Configuração salva com sucesso!');
+        } else { alert('Digite uma identificação válida.'); }
     }
 
     window.onload = function() {
@@ -62,16 +98,49 @@
         const salvo = localStorage.getItem('numeroAlvo');
         if(salvo) {
             document.getElementById('inputNumero').value = salvo;
-            log(`Número recuperado do Storage: ${salvo}`);
-        } else { log("Nenhum número salvo anteriormente."); }
+            log(`Identificação recuperada: ${salvo}`);
+        } else { log("⚠️ Atenção: Defina o número da casa/alvo antes de usar."); }
     };
+
+    function registrarChamadaNoFirebase(numeroChegando) {
+        const casaAlvo = localStorage.getItem('numeroAlvo') || "Desconhecida";
+        const agora = new Date();
+        const dataFormatada = agora.toLocaleDateString('pt-BR');
+        const horaFormatada = agora.toLocaleTimeString('pt-BR');
+        
+        // Captura a imagem atual da tag img convertendo para base64/snapshot
+        const imgElement = document.getElementById('frameImg');
+        let imagemAtual = imgElement.src;
+
+        const dadosChamada = {
+            casa: casaAlvo,
+            numeroTelefone: numeroChegando,
+            data: dataFormatada,
+            hora: horaFormatada,
+            miniatura: imagemAtual,
+            timestamp: Date.now()
+        };
+
+        // Salva no nó de histórico do admin
+        database.ref('historico_chamadas').push(dadosChamada)
+            .then(() => {
+                log("✅ Registro de chamada e miniatura enviados ao Firebase com sucesso!");
+            })
+            .catch((error) => {
+                log("❌ Erro ao enviar para o Firebase: " + error.message);
+            });
+    }
 
     function processarChamada(numeroChegando) {
         log(`🚨 CHAMADA DETECTADA DO NÚMERO: ${numeroChegando}`);
         const alvoSalvo = localStorage.getItem('numeroAlvo') || '';
+        
         if (alvoSalvo && numeroChegando.includes(alvoSalvo)) {
-            log(`MATCH PERFEITO! O número ${numeroChegando} corresponde ao alvo.`);
+            log(`MATCH PERFEITO! Correspondente à casa: ${alvoSalvo}`);
             document.body.style.backgroundColor = '#004d40';
+            
+            // Envia os dados para o Firebase para o Admin consultar depois
+            registrarChamadaNoFirebase(numeroChegando);
         } else {
             log(`Chamada ignorada (Não bate com o alvo: ${alvoSalvo})`);
             document.body.style.backgroundColor = '#b71c1c';
@@ -79,23 +148,21 @@
     }
 
     function simularChamadaEntrando() {
-        const alvoSalvo = document.getElementById('inputNumero').value.trim() || localStorage.getItem('numeroAlvo');
-        if(!alvoSalvo) { alert('Salve ou digite um número alvo primeiro!'); return; }
+        const alvoSalvo = document.getElementById('inputNumero'].value.trim() || localStorage.getItem('numeroAlvo');
+        if(!alvoSalvo) { alert('Salve ou digite um número/casa alvo primeiro!'); return; }
         
         log("--- SIMULAÇÃO ACIONADA: AGUARDANDO 10s NO NATIVO ---");
 
-        // Dispara a ponte nativa Java que criamos com o timer de 10 segundos
         try {
             if (window.AndroidBridge && typeof window.AndroidBridge.simularChamadaComAtraso === 'function') {
                 window.AndroidBridge.simularChamadaComAtraso(alvoSalvo);
-                log("Comando enviado ao Android. Você tem 10 segundos para bloquear a tela!");
+                log("Comando enviado ao Android. Bloqueie a tela para testar o fundo!");
             } else {
-                // Fallback caso esteja testando no navegador do PC
-                log("Aviso: AndroidBridge não encontrada. Executando simulação local.");
+                log("Aviso: AndroidBridge não encontrada. Simulação local.");
                 setTimeout(() => { processarChamada(alvoSalvo); }, 10000);
             }
         } catch (e) {
-            log("Erro ao acionar a ponte nativa: " + e.message);
+            log("Erro ao acionar ponte nativa: " + e.message);
         }
     }
 
