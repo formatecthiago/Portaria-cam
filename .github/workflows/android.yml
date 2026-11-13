@@ -45,13 +45,21 @@ jobs:
           [ -f "CallService.java" ] && cp CallService.java "$JAVA_DIR/CallService.java"
           [ -f "MainActivity.java" ] && cp MainActivity.java "$JAVA_DIR/MainActivity.java"
 
-      - name: 8. Gerar APK Debug
+      - name: 8. Injetar Permissoes e Servico no AndroidManifest.xml
+        run: |
+          MANIFEST_PATH=$(find android -name AndroidManifest.xml | head -n 1)
+          if [ -f "$MANIFEST_PATH" ]; then
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.READ_PHONE_STATE" />\n    <uses-permission android:name="android.permission.READ_CALL_LOG" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />\n    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' "$MANIFEST_PATH"
+            sed -i '/<\/application>/i \        <service android:name="com.control.door.portaria.CallService" android:enabled="true" android:exported="false" android:foregroundServiceType="phoneCall" \/>' "$MANIFEST_PATH"
+          fi
+
+      - name: 9. Gerar APK Debug
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: 9. Salvar Artefato APK
+      - name: 10. Salvar Artefato APK
         uses: actions/upload-artifact@v4
         with:
           name: Portaria-MVP-APK
