@@ -3,149 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1a1a1a">
-    <title>Portaria ao vivo</title>
-
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#121212">
+    <title>Portaria</title>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             background-color: #121212;
-            color: #ffffff;
+            color: #00ffcc;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 15px;
-        }
-
-        .container {
-            position: relative;
-            width: 100%;
-            max-width: 420px;
-            background: #1e1e1e;
-            border-radius: 16px;
             padding: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
 
-        .btn-close-top {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: #ff4757;
-            color: #ffffff;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+        .card {
+            width: 100%;
+            max-width: 400px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 25px 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            border: 1px solid #333;
         }
-
-        .btn-close-top:active { transform: scale(0.95); }
 
         h2 {
-            font-size: 1.1rem;
-            margin-top: 10px;
-            margin-bottom: 15px;
-            color: #00ffcc;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            text-align: center;
             text-transform: uppercase;
             letter-spacing: 1px;
-            width: 100%;
-            text-align: left;
-        }
-
-        /* Caixas de Configuração Separadas */
-        .config-box {
-            width: 100%;
-            background: #2a2a2a;
-            padding: 10px 12px;
-            border-radius: 10px;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            border: 1px solid #3d3d3d;
-        }
-
-        .config-box label {
-            font-size: 0.75rem;
             color: #00ffcc;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: #aaa;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 6px;
             font-weight: bold;
         }
 
-        .config-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .config-row input {
-            flex: 1;
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
             background: #121212;
             border: 1px solid #444;
             color: #fff;
-            padding: 8px 10px;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            box-sizing: border-box;
         }
 
-        .config-row button {
+        input:focus {
+            border-color: #00ffcc;
+            outline: none;
+        }
+
+        .btn-principal {
+            width: 100%;
+            padding: 14px;
             background: #00ff00;
             color: #121212;
             border: none;
-            padding: 8px 14px;
             border-radius: 6px;
             font-weight: bold;
-            font-size: 0.85rem;
+            font-size: 1rem;
             cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 4px 12px rgba(0,255,0,0.3);
         }
 
-        .config-row button:active { transform: scale(0.95); }
+        .btn-principal:active { transform: scale(0.98); }
+
+        /* Tela 2: Visualização da Portaria */
+        #telaPortaria { display: none; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
+        
+        .info-casa {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #00ffcc;
+            margin-bottom: 12px;
+            text-align: center;
+            text-transform: uppercase;
+        }
 
         .video-wrapper {
-            position: relative;
             width: 100%;
-            height: 200px;
+            height: 240px;
             background-color: #000;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
-            border: 2px solid #333;
+            border: 1px solid #444;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 5px;
         }
 
         #frameImg {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            image-rendering: -webkit-optimize-contrast;
             display: block;
         }
 
-        #pipCanvas, #pipVideo { display: none; }
-
         .status-bar {
-            margin: 12px 0;
+            margin-top: 12px;
             font-size: 0.85rem;
             color: #aaa;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
             width: 100%;
         }
@@ -156,28 +130,17 @@
             border-radius: 50%;
             background-color: #ff4757;
         }
+        .status-dot.online { background-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
 
-        .status-dot.online { background-color: #00ff88; box-shadow: 0 0 8px #00ff88; }
-        .status-dot.repouso { background-color: #eccc68; box-shadow: 0 0 8px #eccc68; }
-
-        .btn-action {
-            width: 100%;
-            padding: 14px;
-            font-size: 0.95rem;
-            font-weight: bold;
-            color: #121212;
-            background: #00ff00;
+        .btn-redefinir {
+            margin-top: 20px;
+            background: none;
             border: none;
-            border-radius: 10px;
+            color: #ff4757;
+            font-size: 0.8rem;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,255,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-top: 5px;
+            text-decoration: underline;
         }
-
-        .btn-action:active { transform: scale(0.98); }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -185,80 +148,36 @@
 </head>
 <body>
 
-    <div class="container">
-        <button class="btn-close-top" onclick="fecharTudo()">
-            ✖ Fechar
-        </button>
+    <!-- TELA 1: CADASTRO INICIAL -->
+    <div id="telaCadastro" class="card">
+        <h2>Configuração da Portaria</h2>
+        
+        <label for="inputCasa">Número da Casa:</label>
+        <input type="text" id="inputCasa" placeholder="Ex: Casa 08">
 
-        <h2>Portaria ao vivo</h2>
+        <label for="inputTelefone">Número de Telefone Alvo:</label>
+        <input type="tel" id="inputTelefone" placeholder="Ex: 084988040811">
 
-        <!-- CAMPO 1: Número da Casa (Para o Admin / Histórico) -->
-        <div class="config-box">
-            <label for="inputCasa">Número da Casa (Ex: Casa 08):</label>
-            <div class="config-row">
-                <input type="text" id="inputCasa" placeholder="Ex: Casa 08">
-                <button onclick="salvarConfiguracoes()">Salvar</button>
-            </div>
-        </div>
+        <button class="btn-principal" onclick="salvarCadastro()">Salvar e Entrar</button>
+    </div>
 
-        <!-- CAMPO 2: Número de Telefone Alvo (Para o APK detectar a chamada) -->
-        <div class="config-box">
-            <label for="inputTelefone">Número de Telefone Alvo (Portaria):</label>
-            <div class="config-row">
-                <input type="tel" id="inputTelefone" placeholder="Ex: 084988040811">
-                <button onclick="salvarConfiguracoes()">Salvar</button>
-            </div>
-        </div>
+    <!-- TELA 2: PORTARIA AO VIVO (LIMPA E DIRETA) -->
+    <div id="telaPortaria" style="display: none;">
+        <div class="info-casa" id="txtIdentificacaoCasa">Casa 08 — Ouvindo Portaria</div>
 
         <div class="video-wrapper">
-            <img id="frameImg" src="https://picsum.photos/400/225" alt="Buscando sinal da portaria...">
-            <canvas id="pipCanvas" width="400" height="225"></canvas>
-            <video id="pipVideo" autoplay playsinline muted></video>
+            <img id="frameImg" src="" alt="Aguardando sinal da câmera...">
         </div>
 
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
-            <span id="statusTxt">Aguardando chamada...</span>
+            <span id="statusTxt">Aguardando transmissão...</span>
         </div>
 
-        <button id="btnPip" class="btn-action" onclick="togglePip()">
-            📺 Ativar Janela Flutuante
-        </button>
+        <button class="btn-redefinir" onclick="redefinirConfiguracao()">⚙️ Redefinir Configurações</button>
     </div>
 
     <script>
-        // Carrega as configurações salvas ao abrir a página
-        window.addEventListener('DOMContentLoaded', () => {
-            const casaSalva = localStorage.getItem('numeroCasaAlvo') || "Casa 08";
-            const telSalvo = localStorage.getItem('numeroPortariaAlvo') || "084988040811";
-            
-            document.getElementById('inputCasa').value = casaSalva;
-            document.getElementById('inputTelefone').value = telSalvo;
-        });
-
-        function salvarConfiguracoes() {
-            const novaCasa = document.getElementById('inputCasa').value.trim();
-            const novoTel = document.getElementById('inputTelefone').value.trim();
-
-            if (novaCasa && novoTel) {
-                localStorage.setItem('numeroCasaAlvo', novaCasa);
-                localStorage.setItem('numeroPortariaAlvo', novoTel);
-                
-                // Comunica com o nativo se necessário
-                try {
-                    if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
-                        window.AndroidBridge.salvarNumeroNativo(novoTel);
-                    }
-                } catch (e) {
-                    console.log("Bridge nativa não aplicada no web puro.");
-                }
-
-                alert("Configurações salvas com sucesso!");
-            } else {
-                alert("Por favor, preencha ambos os campos (Casa e Telefone).");
-            }
-        }
-
         // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
@@ -270,123 +189,106 @@
         }
         const database = firebase.database();
 
-        const frameImg = document.getElementById('frameImg');
-        const statusTxt = document.getElementById('statusTxt');
-        const statusDot = document.getElementById('statusDot');
-        const btnPip = document.getElementById('btnPip');
-        const pipCanvas = document.getElementById('pipCanvas');
-        const pipVideo = document.getElementById('pipVideo');
-        const ctx = pipCanvas.getContext('2d');
-
-        let timerRepouso = null;
-
-        // ISOLAMENTO DA BRAND: Escutando exclusivamente o nó 'portaria' como no projeto antigo[span_4](start_span)[span_4](end_span)
-        database.ref('camera/stream/portaria').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.imagem) {
-                frameImg.src = data.imagem;
-                statusTxt.textContent = "Portaria: Transmissão Ativa (Ao Vivo)";
-                statusDot.className = "status-dot online";
-                atualizarCanvas();
-
-                clearTimeout(timerRepouso);
-                timerRepouso = setTimeout(() => {
-                    marcarComoInativo();
-                }, 3000); // 3 segundos de tolerância para repouso fluido
-            } else {
-                marcarComoInativo();
-            }
+        window.addEventListener('DOMContentLoaded', () => {
+            verificarEstadoInicial();
         });
 
-        function marcarComoInativo() {
-            statusTxt.textContent = "Portaria: Sem sinal / Repouso";
-            statusDot.className = "status-dot repouso";
+        function verificarEstadoInicial() {
+            const casaSalva = localStorage.getItem('numeroCasaAlvo');
+            const telSalvo = localStorage.getItem('numeroPortariaAlvo');
+
+            if (casaSalva && telSalvo) {
+                // Já cadastrado: vai direto para a Tela da Portaria
+                document.getElementById('telaCadastro').style.display = 'none';
+                document.getElementById('telaPortaria').style.display = 'flex';
+                document.getElementById('txtIdentificacaoCasa').textContent = `${casaSalva} — Ouvindo Portaria`;
+                
+                iniciarEscutaFirebase();
+            } else {
+                // Não cadastrado: mostra a tela de cadastro
+                document.getElementById('telaCadastro').style.display = 'block';
+                document.getElementById('telaPortaria').style.display = 'none';
+            }
         }
 
-        function atualizarCanvas() {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => {
-                ctx.imageSmoothingEnabled = true;
-                ctx.drawImage(img, 0, 0, pipCanvas.width, pipCanvas.height);
-            };
-            img.src = frameImg.src;
+        function salvarCadastro() {
+            const casa = document.getElementById('inputCasa').value.trim();
+            const telefone = document.getElementById('inputTelefone').value.trim();
+
+            if (!casa || !telefone) {
+                alert("Por favor, preencha o número da casa e o telefone alvo.");
+                return;
+            }
+
+            localStorage.setItem('numeroCasaAlvo', casa);
+            localStorage.setItem('numeroPortariaAlvo', telefone);
+
+            // Comunica com o código nativo do Android se houver
+            try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
+                    window.AndroidBridge.salvarNumeroNativo(telefone);
+                }
+            } catch (e) {
+                console.log("Bridge nativa não disponível.");
+            }
+
+            verificarEstadoInicial();
         }
 
-        // Função que registra a visita e a imagem atual no histórico do Admin quando a chamada ocorre
+        function redefinirConfiguracao() {
+            if (confirm("Deseja realmente redefinir as configurações? Você precisará cadastrar novamente.")) {
+                localStorage.removeItem('numeroCasaAlvo');
+                localStorage.removeItem('numeroPortariaAlvo');
+                window.location.reload();
+            }
+        }
+
+        // Lógica do Streaming do Firebase (Corrigida e fluida)
+        function iniciarEscutaFirebase() {
+            const frameImg = document.getElementById('frameImg');
+            const statusTxt = document.getElementById('statusTxt');
+            const statusDot = document.getElementById('statusDot');
+
+            database.ref('camera/stream/portaria').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data && data.imagem) {
+                    frameImg.src = data.imagem;
+                    statusTxt.textContent = "Transmissão Ativa (Ao Vivo)";
+                    statusDot.className = "status-dot online";
+                } else {
+                    statusTxt.textContent = "Sem sinal / Repouso";
+                    statusDot.className = "status-dot";
+                }
+            }, (error) => {
+                statusTxt.textContent = "Erro ao conectar ao stream";
+                statusDot.className = "status-dot";
+            });
+        }
+
+        // Registro de Histórico quando a chamada nativa ocorrer
         function registrarVisitaHistorico(numeroChegando) {
-            const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Casa Desconhecida";
+            const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Desconhecida";
             const agora = new Date();
-            const dataFormatada = agora.toLocaleDateString('pt-BR');
-            const horaFormatada = agora.toLocaleTimeString('pt-BR');
-            const imagemAtual = frameImg.src;
+            const imagemAtual = document.getElementById('frameImg').src;
 
             const dadosVisita = {
                 casa: casaAlvo,
                 numeroTelefone: numeroChegando,
-                data: dataFormatada,
-                hora: horaFormatada,
+                data: agora.toLocaleDateString('pt-BR'),
+                hora: agora.toLocaleTimeString('pt-BR'),
                 miniatura: imagemAtual,
                 timestamp: Date.now()
             };
 
             database.ref('historico_chamadas').push(dadosVisita)
-                .then(() => {
-                    console.log("Visita registrada no Firebase para o Admin com sucesso!");
-                })
-                .catch((err) => {
-                    console.error("Erro ao registrar visita:", err);
-                });
+                .catch((err) => console.error("Erro ao registrar no histórico:", err));
         }
 
-        async function togglePip() {
-            try {
-                if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture();
-                } else {
-                    atualizarCanvas();
-                    const stream = pipCanvas.captureStream(10);
-                    pipVideo.srcObject = stream;
-                    await pipVideo.play();
-                    await pipVideo.requestPictureInPicture();
-                }
-            } catch (err) {
-                alert("O navegador não suporta a janela flutuante ou é necessária uma interação.");
-            }
-        }
-
-        async function fecharTudo() {
-            if (document.pictureInPictureElement) {
-                try {
-                    await document.exitPictureInPicture();
-                } catch (e) {
-                    console.log("Flutuante encerrado.");
-                }
-            }
-            window.location.href = "https://www.google.com";
-        }
-
-        pipVideo.addEventListener('enterpictureinpicture', () => {
-            btnPip.innerHTML = "❌ Encerrar Flutuante";
-        });
-
-        pipVideo.addEventListener('leavepictureinpicture', () => {
-            btnPip.innerHTML = "📺 Ativar Janela Flutuante";
-        });
-
-        // Evento disparado pelo nativo quando a chamada da portaria é identificada
         window.addEventListener('portariaChamando', (e) => {
             const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('numeroPortariaAlvo') || "Chamada");
-            console.log("Chamada da portaria identificada pelo app nativo!");
-            
-            // Ativa o PiP automaticamente
-            togglePip();
-
-            // Registra a visita com a imagem atual para o Admin
             registrarVisitaHistorico(numDetectado);
         });
 
-        // Função de compatibilidade caso o nativo chame diretamente
         function onChamadaDetectadaDoNativo(numeroReal) {
             const evento = new CustomEvent('portariaChamando', { detail: { numero: numeroReal } });
             window.dispatchEvent(evento);
