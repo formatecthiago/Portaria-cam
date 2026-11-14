@@ -180,7 +180,6 @@
     </div>
 
     <script>
-        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
@@ -242,7 +241,7 @@
             }
         }
 
-        // Lógica de Streaming corrigida para escutar o nó raiz 'camera/stream' exato do projeto funcional
+        // Lógica de Streaming escutando o nó raiz 'camera/stream'
         function iniciarEscutaFirebase() {
             const frameImg = document.getElementById('frameImg');
             const statusTxt = document.getElementById('statusTxt');
@@ -267,7 +266,7 @@
             });
         }
 
-        // Registro de Histórico automático apenas quando a chamada real do APK ocorrer
+        // GATILHO AUTOMÁTICO: Disparado assim que a chamada é detectada pelo app
         function registrarVisitaHistorico(numeroChegando) {
             const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Desconhecida";
             const agora = new Date();
@@ -278,11 +277,15 @@
                 numeroTelefone: numeroChegando,
                 data: agora.toLocaleDateString('pt-BR'),
                 hora: agora.toLocaleTimeString('pt-BR'),
-                miniatura: imagemAtual,
+                miniatura: imagemAtual || "",
                 timestamp: Date.now()
             };
 
+            // Envia obrigatoriamente para o histórico do Admin independentemente de atender ou não
             database.ref('historico_chamadas').push(dadosVisita)
+                .then(() => {
+                    console.log("Visita registrada automaticamente no Firebase para o Admin!");
+                })
                 .catch((err) => console.error("Erro ao registrar no histórico:", err));
         }
 
