@@ -81,7 +81,8 @@
 
         .btn-principal:active { transform: scale(0.98); }
 
-        #telaPortaria { display: none; width: 100%; max-width: 400px; flex-direction: column; align-items: center; }
+        /* Tela 2: Visualização da Portaria */
+        #telaPortaria { display: none; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
         
         .info-casa {
             font-size: 1.1rem;
@@ -123,6 +124,7 @@
             width: 100%;
         }
 
+        /* Cores de status rigorosas: Amarelo para aguardando/repouso, Verde para online */
         .status-dot {
             width: 10px;
             height: 10px;
@@ -161,7 +163,7 @@
         <button class="btn-principal" onclick="salvarCadastro()">Salvar e Entrar</button>
     </div>
 
-    <!-- TELA 2: PORTARIA AO VIVO -->
+    <!-- TELA 2: PORTARIA AO VIVO (LIMPA E DIRETA) -->
     <div id="telaPortaria" style="display: none;">
         <div class="info-casa" id="txtIdentificacaoCasa">Casa 08 — Ouvindo Portaria</div>
 
@@ -178,6 +180,7 @@
     </div>
 
     <script>
+        // URL CORRETA E UNIFICADA DO FIREBASE (Mesma do painel Admin e do seu print)
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://portaria-cam-default-rtdb.firebaseio.com"
@@ -232,14 +235,14 @@
         }
 
         function redefinirConfiguracao() {
-            if (confirm("Deseja realmente redefinir as configurações?")) {
+            if (confirm("Deseja realmente redefinir as configurações? Você precisará cadastrar novamente.")) {
                 localStorage.removeItem('numeroCasaAlvo');
                 localStorage.removeItem('numeroPortariaAlvo');
                 window.location.reload();
             }
         }
 
-        // Streaming que já funcionava perfeitamente
+        // Lógica de Streaming original escutando o nó 'camera/stream'
         function iniciarEscutaFirebase() {
             const frameImg = document.getElementById('frameImg');
             const statusTxt = document.getElementById('statusTxt');
@@ -257,14 +260,19 @@
                     statusTxt.style.color = "#eccc68";
                     statusDot.className = "status-dot";
                 }
+            }, (error) => {
+                statusTxt.textContent = "Erro ao conectar ao stream";
+                statusTxt.style.color = "#ff4757";
+                statusDot.className = "status-dot";
             });
         }
 
-        // Função limpa para registrar o histórico para o Admin no momento exato da chamada
+        // GATILHO AUTOMÁTICO: Registra o histórico no banco unificado para o Admin
         function registrarVisitaHistorico(numeroChegando) {
             const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Desconhecida";
             const agora = new Date();
-            const imagemAtual = document.getElementById('frameImg').src;
+            const frameImg = document.getElementById('frameImg');
+            const imagemAtual = frameImg ? frameImg.src : "";
 
             const dadosVisita = {
                 casa: casaAlvo,
@@ -276,10 +284,12 @@
             };
 
             database.ref('historico_chamadas').push(dadosVisita)
-                .catch((err) => console.error("Erro ao registrar histórico:", err));
+                .then(() => {
+                    console.log("Visita registrada com sucesso no Firebase para o Admin!");
+                })
+                .catch((err) => console.error("Erro ao registrar no histórico:", err));
         }
 
-        // Ouvintes nativos de chamada
         window.addEventListener('portariaChamando', (e) => {
             const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('numeroPortariaAlvo') || "Chamada");
             registrarVisitaHistorico(numDetectado);
