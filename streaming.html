@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Câmera - Portaria Cam (4 FPS)</title>
+  
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #121212;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 360px;
+      margin: 0 auto;
+    }
+    video {
+      width: 320px;
+      height: 240px;
+      border: 2px solid #00ff00;
+      border-radius: 8px;
+      background: #000;
+      object-fit: cover;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 15px;
+      border-radius: 8px;
+      border: none;
+      background: #00ff00;
+      color: #000;
+      font-weight: bold;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .btn-stream-now {
+      background: #ff4757;
+      color: #fff;
+    }
+    .btn-stream-now:active { transform: scale(0.98); }
+    #status { font-weight: bold; color: #00ff00; margin-top: 15px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Simulador - Portaria Cam</h2>
+    
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+    
+    <button id="btn-pip" class="btn" onclick="alternarModoFlutuante()">🔲 MODO FLUTUANTE (PIP)</button>
+    
+    <!-- Botão Stream Now para testes manuais e push direto no histórico -->
+    <button class="btn btn-stream-now" onclick="forcarStreamNow()">🚨 STREAM NOW (FORÇAR TESTE)</button>
+
+    <p id="status">Aguardando permissão da câmera...</p>
+  </div>
+
+  <script>
+    // Firebase Oficial do Projeto Portaria-cam
+    const configPortariaCam = { 
+      apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM", 
+      databaseURL: "https://portaria-cam-default-rtdb.firebaseio.com" 
+    };
+    
+    if (!firebase.apps.length) firebase.initializeApp(configPortariaCam);
+    const dbPortaria = firebase.database();
+
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const btnPip = document.getElementById('btn-pip');
+
+    let intervalTransmissao = null;
+    let podeGravarNoFirebase = false;
+
+    // Escuta em tempo real se existe qualquer chamada ativa no projeto Portaria-cam
+    dbPortaria.ref('chamadas_ativas').on('value', (snapshot) => {
+      let existeChamadaAtiva = false;
+      const chamadas = snapshot.val();
+
+      if (chamadas) {
+        Object.keys(chamadas).forEach((unidade) => {
+          const st = chamadas[unidade].status;
+          if (st === 'chamando' || st === 'escrevendo' || st === 'gravando') {
+            existeChamadaAtiva = true;
+          }
+        });
+      }
+
+      podeGravarNoFirebase = existeChamadaAtiva;
+
+      // Se NÃO houver chamada ativa, remove o stream da câmera imediatamente
+      if (!podeGravarNoFirebase) {
+        dbPortaria.ref('camera/stream').remove();
+      }
+    });
+
+    // Inicializa a câmera do dispositivo
+    navigator.mediaDevices.getUserMedia({ 
+      video: { width: 320, height: 240, facingMode: "environment" }, 
+      audio: false 
+    })
+    .then((stream) => {
+      video.srcObject = stream;
+      statusText.innerText = "Transmissão Ativa (4 FPS) -> Portaria-cam OK!";
+      
+      if (intervalTransmissao) clearInterval(intervalTransmissao);
+      intervalTransmissao = setInterval(capturarEEnviar, 250);
+    })
+    .catch((err) => {
+      statusText.innerText = "Erro ao acessar a câmera: " + err;
+      statusText.style.color = "#ff4757";
+    });
+
+    function capturarEEnviar() {
+      // Envia ao Firebase somente se houver chamada ativa ou se desejar monitoramento contínuo
+      if (podeGravarNoFirebase && video.readyState === video.HAVE_ENOUGH_DATA) {
+        ctx.drawImage(video, 0, 0, 320, 240);
+        const frameBase64 = canvas.toDataURL('image/jpeg', 0.30);
+
+        dbPortaria.ref('camera/stream').set({
+          imagem: frameBase64,
+          timestamp: Date.now()
+        });
+      }
+    }
+
+    // Função do botão Stream Now: Força o envio da imagem atual e cria o push no historico_chamadas
+    function forcarStreamNow() {
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+        alert("A câmera ainda não está pronta!");
+        return;
+      }
+
+      // 1. Captura o frame atual da câmera
+      ctx.drawImage(video, 0, 0, 320, 240);
+      const imagemAtual = canvas.toDataURL('image/jpeg', 0.30);
+
+      // 2. Atualiza o stream ao vivo no projeto Portaria-cam
+      dbPortaria.ref('camera/stream').set({
+        imagem: imagemAtual,
+        timestamp: Date.now()
+      });
+
+      // 3. Monta o objeto de histórico simulando uma chamada real
+      const agora = new Date();
+      const dadosVisita = {
+        casa: "Casa Teste 01",
+        numeroTelefone: "84999999999",
+        data: agora.toLocaleDateString('pt-BR'),
+        hora: agora.toLocaleTimeString('pt-BR'),
+        miniatura: imagemAtual,
+        timestamp: Date.now()
+      };
+
+      // 4. Dispara o push direto para o nó historico_chamadas na raiz do Portaria-cam
+      dbPortaria.ref('historico_chamadas').push(dadosVisita)
+        .then(() => {
+          alert("Stream Now executado com sucesso! Verifique o painel Firebase do Portaria-cam.");
+        })
+        .catch((err) => {
+          alert("Erro ao gravar no Firebase: " + err.message);
+        });
+    }
+
+    async function alternarModoFlutuante() {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else {
+          if (document.pictureInPictureEnabled) {
+            await video.requestPictureInPicture();
+          } else {
+            alert("Seu navegador não suporta o modo janela flutuante.");
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao ativar PiP:", err);
+      }
+    }
+
+    video.addEventListener('enterpictureinpicture', () => {
+      statusText.innerText = "Modo Flutuante Ativo (4 FPS) -> Em segundo plano!";
+      btnPip.innerText = "🔙 SAIR DO MODO FLUTUANTE";
+    });
+
+    video.addEventListener('leavepictureinpicture', () => {
+      statusText.innerText = "Transmissão Ativa (4 FPS) -> Portaria-cam OK!";
+      btnPip.innerText = "🔲 MODO FLUTUANTE (PIP)";
+    });
+  </script>
+</body>
+</html>
