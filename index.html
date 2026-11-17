@@ -179,10 +179,10 @@
     </div>
 
     <script>
-        // Configuração do Firebase
+        // CONFIGURAÇÃO OFICIAL: Projeto Portaria-cam
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
-            databaseURL: "https://virty-access-door-default-rtdb.firebaseio.com"
+            databaseURL: "https://portaria-cam-default-rtdb.firebaseio.com"
         };
 
         if (!firebase.apps.length) {
@@ -241,7 +241,7 @@
             }
         }
 
-        // Streaming (Intacto e rodando perfeitamente)
+        // Streaming (Apontado estritamente para o Portaria-cam)
         function iniciarEscutaFirebase() {
             const frameImg = document.getElementById('frameImg');
             const statusTxt = document.getElementById('statusTxt');
@@ -284,10 +284,10 @@
                 timestamp: Date.now()
             };
 
-            // Envia para o Firebase para alimentar o painel admin instantaneamente
+            // Envia rigorosamente para o banco do Portaria-cam no nó historico_chamadas
             database.ref('historico_chamadas').push(dadosVisita)
                 .then(() => {
-                    console.log("Sucesso: Visita e imagem enviadas para o histórico do Admin!");
+                    console.log("Sucesso: Visita e imagem enviadas para o histórico do Portaria-cam!");
                 })
                 .catch((err) => {
                     console.error("Erro ao enviar histórico para o Firebase:", err);
