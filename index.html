@@ -119,19 +119,19 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(255, 71, 87, 0.85);
+            background: #ff4757;
             color: #fff;
             border: none;
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: bold;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.7);
             z-index: 99;
         }
         .btn-fechar-x:active { transform: scale(0.90); }
@@ -139,12 +139,12 @@
         /* Timer Regressivo */
         .timer-container {
             margin-top: 12px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: bold;
             color: #00ffcc;
             text-align: center;
             background: #1e1e1e;
-            padding: 8px;
+            padding: 10px;
             border-radius: 6px;
             width: 100%;
             border: 1px solid #333;
@@ -152,13 +152,13 @@
 
         .timer-alerta {
             color: #ff4757 !important;
-            animation: piscar 0.8s infinite alternate;
-            font-size: 1.2rem !important;
+            animation: piscar 0.6s infinite alternate;
+            font-size: 1.3rem !important;
         }
 
         @keyframes piscar {
             from { opacity: 1; transform: scale(1); }
-            to { opacity: 0.4; transform: scale(1.05); }
+            to { opacity: 0.3; transform: scale(1.03); }
         }
 
         .status-bar {
@@ -204,7 +204,7 @@
 </head>
 <body>
 
-    <!-- TELA 1: CADASTRO E PERMISSÕES -->
+    <!-- TELA 1: CADASTRO -->
     <div id="telaCadastro" class="card">
         <h2>Configuração da Portaria</h2>
         
@@ -215,13 +215,12 @@
         <input type="tel" id="inputTelefone" placeholder="Ex: 084988040811">
 
         <button class="btn-principal" onclick="salvarCadastro()">Salvar e Entrar</button>
-        <button class="btn-principal" style="background: #3498db; color: #fff;" onclick="pedirPermissaoOverlay()">📱 Permitir Sobre Outros Apps</button>
     </div>
 
     <!-- TELA 2: PORTARIA AO VIVO -->
     <div id="telaPortaria">
-        <!-- Botão X para fechar o APK completamente -->
-        <button class="btn-fechar-x" onclick="fecharAppCompleto()" title="Fechar App">✕</button>
+        <!-- Botão X Visível para fechar o app -->
+        <button class="btn-fechar-x" onclick="fecharAppCompleto()">✕</button>
 
         <div class="info-casa" id="txtIdentificacaoCasa">Casa 08 — Ouvindo Portaria</div>
 
@@ -229,7 +228,7 @@
             <img id="frameImg" src="" alt="Aguardando sinal da câmera...">
         </div>
 
-        <div class="timer-container" id="txtTimer">Tempo restante: <span id="contadorRegressivo">120</span>s</div>
+        <div class="timer-container" id="txtTimer">Tempo restante: <span id="contadorRegressivo">60</span>s</div>
 
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
@@ -252,8 +251,8 @@
         }
         const database = firebase.database();
 
-        let tempoRestante = 120; // Padrão com chamada ativa
         let timerInterval = null;
+        let tempoRestante = 60; // Padrão inicial de 60 segundos para visualização
 
         window.addEventListener('DOMContentLoaded', () => {
             verificarEstadoInicial();
@@ -268,7 +267,9 @@
                 document.getElementById('telaPortaria').style.display = 'flex';
                 document.getElementById('txtIdentificacaoCasa').textContent = `${casaSalva} — Ouvindo Portaria`;
                 
+                // Inicia o streaming e o timer imediatamente ao abrir a tela
                 iniciarEscutaFirebase();
+                iniciarTimerRegressivo(60);
             } else {
                 document.getElementById('telaCadastro').style.display = 'block';
                 document.getElementById('telaPortaria').style.display = 'none';
@@ -287,31 +288,10 @@
             localStorage.setItem('numeroCasaAlvo', casa);
             localStorage.setItem('numeroPortariaAlvo', telefone);
 
-            try {
-                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
-                    window.AndroidBridge.salvarNumeroNativo(telefone);
-                }
-            } catch (e) {
-                console.log("Bridge nativa não disponível.");
-            }
-
             verificarEstadoInicial();
         }
 
-        // Função para solicitar permissão de "Exibir sobre outros aplicativos" via Android Bridge
-        function pedirPermissaoOverlay() {
-            try {
-                if (window.AndroidBridge && typeof window.AndroidBridge.pedirPermissaoOverlay === 'function') {
-                    window.AndroidBridge.pedirPermissaoOverlay();
-                } else {
-                    alert("Aguardando interface nativa Android para solicitar permissão de sobreposição.");
-                }
-            } catch (e) {
-                alert("Erro ao solicitar permissão: " + e.message);
-            }
-        }
-
-        // Botão X para fechar completamente o app
+        // Botão X Funcional para fechar o App
         function fecharAppCompleto() {
             if (timerInterval) clearInterval(timerInterval);
             try {
@@ -325,11 +305,13 @@
             }
         }
 
-        // Inicia o Timer Regressivo Inteligente
-        function iniciarTimer(segundosCustom) {
-            tempoRestante = segundosCustom;
+        // Timer Regressivo Autônomo com Alerta Visual e Tela Preta
+        function iniciarTimer(segundos) {
+            tempoRestante = segundos;
             const spanContador = document.getElementById('contadorRegressivo');
             const containerTimer = document.getElementById('txtTimer');
+
+            spanContador.textContent = tempoRestante;
 
             if (timerInterval) clearInterval(timerInterval);
 
@@ -337,23 +319,21 @@
                 tempoRestante--;
                 spanContador.textContent = tempoRestante;
 
-                // Alerta chamativo nos últimos 15 segundos
+                // Mega destaque chamativo nos últimos 15 segundos
                 if (tempoRestante <= 15) {
                     containerTimer.classList.add('timer-alerta');
                 }
 
-                // Quando o tempo esgota
+                // Ao zerar, corta tudo e exibe a tela preta com a mensagem exata
                 if (tempoRestante <= 0) {
                     clearInterval(timerInterval);
-                    
-                    // Corta o stream e exibe a tela preta com a frase exigida
                     document.getElementById('telaPortaria').style.display = 'none';
                     document.getElementById('telaEncerrada').style.display = 'flex';
                 }
             }, 1000);
         }
 
-        // Escuta o streaming de vídeo ao vivo
+        // Escuta Direta do Streaming no Firebase (Portaria-cam)
         function iniciarEscutaFirebase() {
             const frameImg = document.getElementById('frameImg');
             const statusTxt = document.getElementById('statusTxt');
@@ -376,44 +356,6 @@
                 statusTxt.style.color = "#ff4757";
                 statusDot.className = "status-dot";
             });
-        }
-
-        // Gatilho de Histórico (Executado instantaneamente ao chegar chamada)
-        function registrarVisitaHistorico(numeroChegando, temChamadaAtiva) {
-            const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Desconhecida";
-            const agora = new Date();
-            const frameImg = document.getElementById('frameImg');
-            const imagemAtual = frameImg ? frameImg.src : "";
-
-            const dadosVisita = {
-                casa: casaAlvo,
-                numeroTelefone: numeroChegando,
-                data: agora.toLocaleDateString('pt-BR'),
-                hora: agora.toLocaleTimeString('pt-BR'),
-                miniatura: imagemAtual,
-                timestamp: Date.now()
-            };
-
-            // Envia para o histórico do projeto Portaria-cam
-            database.ref('historico_chamadas').push(dadosVisita)
-                .catch((err) => {
-                    console.error("Erro ao registrar histórico:", err);
-                });
-
-            // Define o tempo do timer conforme a regra: 120s se tem chamada ativa, 60s se não tem
-            const tempoDefinido = temChamadaAtiva ? 120 : 60;
-            iniciarTimer(tempoDefinido);
-        }
-
-        window.addEventListener('portariaChamando', (e) => {
-            const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('numeroPortariaAlvo') || "Chamada");
-            const chamadaAtiva = (e.detail && e.detail.ativa !== undefined) ? e.detail.ativa : true;
-            registrarVisitaHistorico(numDetectado, chamadaAtiva);
-        });
-
-        function onChamadaDetectadaDoNativo(numeroReal, ativa) {
-            const evento = new CustomEvent('portariaChamando', { detail: { numero: numeroReal, ativa: ativa } });
-            window.dispatchEvent(evento);
         }
     </script>
 </body>
