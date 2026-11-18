@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#121212">
-    <title>Portaria</title>
+    <title>Portaria - Portaria-cam</title>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -77,12 +77,13 @@
             cursor: pointer;
             text-transform: uppercase;
             box-shadow: 0 4px 12px rgba(0,255,0,0.3);
+            margin-top: 10px;
         }
 
         .btn-principal:active { transform: scale(0.98); }
 
         /* Tela 2: Visualização da Portaria */
-        #telaPortaria { display: none; width: 100%; max-width: 400px; flex-direction: column; align-items: center; }
+        #telaPortaria { display: none; width: 100%; max-width: 400px; flex-direction: column; align-items: center; position: relative; }
         
         .info-casa {
             font-size: 1.1rem;
@@ -113,8 +114,55 @@
             display: block;
         }
 
-        .status-bar {
+        /* Botão X Flutuante para fechar o app */
+        .btn-fechar-x {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 71, 87, 0.85);
+            color: #fff;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            z-index: 99;
+        }
+        .btn-fechar-x:active { transform: scale(0.90); }
+
+        /* Timer Regressivo */
+        .timer-container {
             margin-top: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #00ffcc;
+            text-align: center;
+            background: #1e1e1e;
+            padding: 8px;
+            border-radius: 6px;
+            width: 100%;
+            border: 1px solid #333;
+        }
+
+        .timer-alerta {
+            color: #ff4757 !important;
+            animation: piscar 0.8s infinite alternate;
+            font-size: 1.2rem !important;
+        }
+
+        @keyframes piscar {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0.4; transform: scale(1.05); }
+        }
+
+        .status-bar {
+            margin-top: 8px;
             font-size: 0.85rem;
             color: #aaa;
             display: flex;
@@ -133,14 +181,21 @@
         }
         .status-dot.online { background-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
 
-        .btn-redefinir {
-            margin-top: 20px;
-            background: none;
-            border: none;
+        /* Tela Preta de Encerramento */
+        #telaEncerrada {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000;
             color: #ff4757;
-            font-size: 0.8rem;
-            cursor: pointer;
-            text-decoration: underline;
+            font-size: 1.8rem;
+            font-weight: bold;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            text-transform: uppercase;
+            text-align: center;
+            padding: 20px;
         }
     </style>
 
@@ -149,7 +204,7 @@
 </head>
 <body>
 
-    <!-- TELA 1: CADASTRO INICIAL -->
+    <!-- TELA 1: CADASTRO E PERMISSÕES -->
     <div id="telaCadastro" class="card">
         <h2>Configuração da Portaria</h2>
         
@@ -160,26 +215,33 @@
         <input type="tel" id="inputTelefone" placeholder="Ex: 084988040811">
 
         <button class="btn-principal" onclick="salvarCadastro()">Salvar e Entrar</button>
+        <button class="btn-principal" style="background: #3498db; color: #fff;" onclick="pedirPermissaoOverlay()">📱 Permitir Sobre Outros Apps</button>
     </div>
 
     <!-- TELA 2: PORTARIA AO VIVO -->
     <div id="telaPortaria">
+        <!-- Botão X para fechar o APK completamente -->
+        <button class="btn-fechar-x" onclick="fecharAppCompleto()" title="Fechar App">✕</button>
+
         <div class="info-casa" id="txtIdentificacaoCasa">Casa 08 — Ouvindo Portaria</div>
 
         <div class="video-wrapper">
             <img id="frameImg" src="" alt="Aguardando sinal da câmera...">
         </div>
 
+        <div class="timer-container" id="txtTimer">Tempo restante: <span id="contadorRegressivo">120</span>s</div>
+
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
             <span id="statusTxt" style="color: #eccc68;">Aguardando sinal da câmera...</span>
         </div>
-
-        <button class="btn-redefinir" onclick="redefinirConfiguracao()">⚙️ Redefinir Configurações</button>
     </div>
 
+    <!-- TELA PRETA DE ENCERRAMENTO -->
+    <div id="telaEncerrada">Vídeo encerrado</div>
+
     <script>
-        // CONFIGURAÇÃO EXCLUSIVA: Projeto Portaria-cam (Sem resquícios do Virty)
+        // CONFIGURAÇÃO OFICIAL: Projeto Portaria-cam
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://portaria-cam-default-rtdb.firebaseio.com"
@@ -189,6 +251,9 @@
             firebase.initializeApp(firebaseConfig);
         }
         const database = firebase.database();
+
+        let tempoRestante = 120; // Padrão com chamada ativa
+        let timerInterval = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             verificarEstadoInicial();
@@ -233,15 +298,62 @@
             verificarEstadoInicial();
         }
 
-        function redefinirConfiguracao() {
-            if (confirm("Deseja realmente redefinir as configurações? Você precisará cadastrar novamente.")) {
-                localStorage.removeItem('numeroCasaAlvo');
-                localStorage.removeItem('numeroPortariaAlvo');
-                window.location.reload();
+        // Função para solicitar permissão de "Exibir sobre outros aplicativos" via Android Bridge
+        function pedirPermissaoOverlay() {
+            try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.pedirPermissaoOverlay === 'function') {
+                    window.AndroidBridge.pedirPermissaoOverlay();
+                } else {
+                    alert("Aguardando interface nativa Android para solicitar permissão de sobreposição.");
+                }
+            } catch (e) {
+                alert("Erro ao solicitar permissão: " + e.message);
             }
         }
 
-        // Foco principal: Ouvir exclusivamente o stream de vídeo em tempo real do Portaria-cam
+        // Botão X para fechar completamente o app
+        function fecharAppCompleto() {
+            if (timerInterval) clearInterval(timerInterval);
+            try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.fecharApp === 'function') {
+                    window.AndroidBridge.fecharApp();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                window.location.href = "about:blank";
+            }
+        }
+
+        // Inicia o Timer Regressivo Inteligente
+        function iniciarTimer(segundosCustom) {
+            tempoRestante = segundosCustom;
+            const spanContador = document.getElementById('contadorRegressivo');
+            const containerTimer = document.getElementById('txtTimer');
+
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                tempoRestante--;
+                spanContador.textContent = tempoRestante;
+
+                // Alerta chamativo nos últimos 15 segundos
+                if (tempoRestante <= 15) {
+                    containerTimer.classList.add('timer-alerta');
+                }
+
+                // Quando o tempo esgota
+                if (tempoRestante <= 0) {
+                    clearInterval(timerInterval);
+                    
+                    // Corta o stream e exibe a tela preta com a frase exigida
+                    document.getElementById('telaPortaria').style.display = 'none';
+                    document.getElementById('telaEncerrada').style.display = 'flex';
+                }
+            }, 1000);
+        }
+
+        // Escuta o streaming de vídeo ao vivo
         function iniciarEscutaFirebase() {
             const frameImg = document.getElementById('frameImg');
             const statusTxt = document.getElementById('statusTxt');
@@ -266,8 +378,8 @@
             });
         }
 
-        // Gatilho de histórico acionado pela chamada nativa do app
-        function registrarVisitaHistorico(numeroChegando) {
+        // Gatilho de Histórico (Executado instantaneamente ao chegar chamada)
+        function registrarVisitaHistorico(numeroChegando, temChamadaAtiva) {
             const casaAlvo = localStorage.getItem('numeroCasaAlvo') || "Desconhecida";
             const agora = new Date();
             const frameImg = document.getElementById('frameImg');
@@ -282,19 +394,25 @@
                 timestamp: Date.now()
             };
 
+            // Envia para o histórico do projeto Portaria-cam
             database.ref('historico_chamadas').push(dadosVisita)
                 .catch((err) => {
                     console.error("Erro ao registrar histórico:", err);
                 });
+
+            // Define o tempo do timer conforme a regra: 120s se tem chamada ativa, 60s se não tem
+            const tempoDefinido = temChamadaAtiva ? 120 : 60;
+            iniciarTimer(tempoDefinido);
         }
 
         window.addEventListener('portariaChamando', (e) => {
             const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('numeroPortariaAlvo') || "Chamada");
-            registrarVisitaHistorico(numDetectado);
+            const chamadaAtiva = (e.detail && e.detail.ativa !== undefined) ? e.detail.ativa : true;
+            registrarVisitaHistorico(numDetectado, chamadaAtiva);
         });
 
-        function onChamadaDetectadaDoNativo(numeroReal) {
-            const evento = new CustomEvent('portariaChamando', { detail: { numero: numeroReal } });
+        function onChamadaDetectadaDoNativo(numeroReal, ativa) {
+            const evento = new CustomEvent('portariaChamando', { detail: { numero: numeroReal, ativa: ativa } });
             window.dispatchEvent(evento);
         }
     </script>
