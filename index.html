@@ -114,7 +114,7 @@
             display: block;
         }
 
-        /* Botão X Flutuante para fechar o app */
+        /* Botão X Flutuante para fechar o app por completo */
         .btn-fechar-x {
             position: absolute;
             top: 10px;
@@ -218,8 +218,10 @@
         }
     </style>
 
+    <!-- Bibliotecas Firebase e Capacitor Core (Essencial para o app comunicar nativamente) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 </head>
 <body>
 
@@ -241,7 +243,7 @@
 
     <!-- TELA 2: PORTARIA AO VIVO -->
     <div id="telaPortaria">
-        <!-- Botão X Visível para fechar o app -->
+        <!-- Botão X Funcional para fechar o APK por completo via Capacitor -->
         <button class="btn-fechar-x" onclick="fecharAppCompleto()">✕</button>
 
         <div class="info-unidade" id="txtIdentificacaoUnidade">Unidade 101 — Monitor</div>
@@ -319,18 +321,24 @@
             verificarEstadoInicial();
         }
 
-        // Botão X para fechar completamente o app
-        function fecharAppCompleto() {
+        // Botão X Definitivo Integrado ao Capacitor para Fechar o APK
+        async function fecharAppCompleto() {
             if (timerInterval) clearInterval(timerInterval);
+
             try {
-                if (window.AndroidBridge && typeof window.AndroidBridge.fecharApp === 'function') {
-                    window.AndroidBridge.fecharApp();
-                } else {
-                    window.close();
+                // Comando nativo do Capacitor para fechar o app por completo na raiz do Android
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+                    await window.Capacitor.Plugins.App.exitApp();
+                    return;
                 }
             } catch (e) {
-                window.location.href = "about:blank";
+                console.log("Erro ao fechar via Capacitor:", e);
             }
+
+            // Plano de contingência visual caso execute em navegador comum
+            document.getElementById('telaPortaria').style.display = 'none';
+            document.getElementById('telaEncerrada').style.display = 'flex';
+            document.getElementById('telaEncerrada').textContent = "Aplicativo Encerrado";
         }
 
         // Timer Regressivo com Bolinha Lateral e Alerta Gigante nos últimos 10s
