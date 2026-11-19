@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#121212">
-    <title>Portaria</title>
+    <title>Portaria - Portaria-cam</title>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -225,6 +225,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 </head>
 <body>
 
@@ -279,45 +280,214 @@
         const database = firebase.database();
 
         let timerInterval = null;
+        let notificacaoRenovacaoInterval = null;
         let tempoRestante = 60;
+        let ultimoFrameValido = "";
+
+        const DURACAO_BANNER_SEGUNDOS = 25;
 
         window.addEventListener('DOMContentLoaded', () => {
+            prepararNotificacoesMaximas();
             verificarEstadoInicial();
         });
 
+        function ehImagemValida(src) {
+            if (!src || typeof src !== "string") return false;
+            const limpa = src.trim();
+            if (!limpa || limpa === "http://localhost/" || limpa.startsWith("http://localhost")) return false;
+            return limpa.startsWith("data:image/") || limpa.startsWith("https://");
+        }
+
+        function obterMiniaturaAtual() {
+            const frameImg = document.getElementById("frameImg");
+            if (frameImg && ehImagemValida(frameImg.src)) {
+                return frameImg.src.trim();
+            }
+            if (ehImagemValida(ultimoFrameValido)) {
+                return ultimoFrameValido.trim();
+            }
+            return "";
+        }
+
+        function buscarMiniaturaNoStream() {
+            return new Promise((resolve) => {
+                const atual = obterMiniaturaAtual();
+                if (atual) {
+                    resolve(atual);
+                    return;
+                }
+
+                let resolvido = false;
+                const timeout = setTimeout(() => {
+                    if (!resolvido) {
+                        resolvido = true;
+                        resolve(obterMiniaturaAtual());
+                    }
+                }, 2000);
+
+                database.ref("camera/stream").once("value", (snapshot) => {
+                    if (resolvido) return;
+                    const data = snapshot.val();
+                    if (data && data.imagem && ehImagemValida(data.imagem)) {
+                        ultimoFrameValido = data.imagem.trim();
+                        resolvido = true;
+                        clearTimeout(timeout);
+                        resolve(ultimoFrameValido);
+                    }
+                }).catch(() => {
+                    if (!resolvido) {
+                        resolvido = true;
+                        clearTimeout(timeout);
+                        resolve(obterMiniaturaAtual());
+                    }
+                });
+            });
+        }
+
+        async function prepararNotificacoesMaximas() {
+            try {
+                const localNotif = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+                if (localNotif) {
+                    if (typeof localNotif.createChannel === "function") {
+                        await localNotif.createChannel({
+                            id: "portaria_chamada_max",
+                            name: "Chamadas da Portaria (Máxima)",
+                            description: "Alerta de prioridade máxima para abrir o monitor da portaria",
+                            importance: 5,
+                            visibility: 1,
+                            vibration: true,
+                            lights: true
+                        });
+                    }
+                    if (typeof localNotif.requestPermissions === "function") {
+                        await localNotif.requestPermissions();
+                    }
+                    if (typeof localNotif.addListener === "function") {
+                        localNotif.addListener("localNotificationActionPerformed", () => {
+                            mostrarTelaPortaria();
+                        });
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.log("Notificação nativa indisponível:", e);
+            }
+
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission().catch(() => {});
+            }
+        }
+
+        function mostrarTelaPortaria() {
+            const unidadeSalva = localStorage.getItem("unidadeAlvo");
+            const telSalvo = localStorage.getItem("telefonePortariaAlvo");
+            if (!unidadeSalva || !telSalvo) return;
+
+            document.getElementById("telaCadastro").style.display = "none";
+            document.getElementById("telaEncerrada").style.display = "none";
+            document.getElementById("telaPortaria").style.display = "flex";
+            document.getElementById("txtIdentificacaoUnidade").textContent = `${unidadeSalva} — Ouvindo Portaria`;
+            iniciarEscutaFirebase();
+        }
+
+        async function dispararBannerMaximo(numeroChamada) {
+            const unidade = localStorage.getItem("unidadeAlvo") || "Unidade";
+            const titulo = "PORTARIA — CHAMADA ATIVA";
+            const corpo = `${unidade} • Origem: ${numeroChamada} • Toque para abrir`;
+
+            try {
+                const localNotif = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+                if (localNotif && typeof localNotif.schedule === "function") {
+                    await localNotif.schedule({
+                        notifications: [{
+                            id: 1001,
+                            title: titulo,
+                            body: corpo,
+                            channelId: "portaria_chamada_max",
+                            autoCancel: false,
+                            ongoing: true,
+                            extra: { numero: numeroChamada }
+                        }]
+                    });
+                    return;
+                }
+            } catch (e) {
+                console.log("Erro ao agendar banner máximo:", e);
+            }
+
+            if ("Notification" in window && Notification.permission === "granted") {
+                const notif = new Notification(titulo, {
+                    body: corpo,
+                    tag: "portaria-chamada-max",
+                    renotify: true,
+                    requireInteraction: true
+                });
+                notif.onclick = () => {
+                    window.focus();
+                    mostrarTelaPortaria();
+                    notif.close();
+                };
+            }
+        }
+
+        function iniciarPersistenciaBanner(numeroChamada) {
+            if (notificacaoRenovacaoInterval) clearInterval(notificacaoRenovacaoInterval);
+            dispararBannerMaximo(numeroChamada);
+
+            let ciclos = 0;
+            const maxCiclos = 5;
+            notificacaoRenovacaoInterval = setInterval(() => {
+                ciclos++;
+                if (ciclos >= maxCiclos) {
+                    clearInterval(notificacaoRenovacaoInterval);
+                    return;
+                }
+                dispararBannerMaximo(numeroChamada);
+            }, DURACAO_BANNER_SEGUNDOS * 1000);
+        }
+
+        async function limparBannerMaximo() {
+            if (notificacaoRenovacaoInterval) {
+                clearInterval(notificacaoRenovacaoInterval);
+                notificacaoRenovacaoInterval = null;
+            }
+            try {
+                const localNotif = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+                if (localNotif && typeof localNotif.cancel === "function") {
+                    await localNotif.cancel({ notifications: [{ id: 1001 }] });
+                }
+            } catch (e) {}
+        }
+
         function verificarEstadoInicial() {
-            const unidadeSalva = localStorage.getItem('unidadeAlvo');
-            const telSalvo = localStorage.getItem('telefonePortariaAlvo');
+            const unidadeSalva = localStorage.getItem("unidadeAlvo");
+            const telSalvo = localStorage.getItem("telefonePortariaAlvo");
 
             if (unidadeSalva && telSalvo) {
-                document.getElementById('telaCadastro').style.display = 'none';
-                document.getElementById('telaPortaria').style.display = 'flex';
-                document.getElementById('txtIdentificacaoUnidade').textContent = `${unidadeSalva} — Ouvindo Portaria`;
-                
+                mostrarTelaPortaria();
                 registrarVisitaHistorico(telSalvo, false);
-                iniciarEscutaFirebase();
             } else {
-                document.getElementById('telaCadastro').style.display = 'block';
-                document.getElementById('telaPortaria').style.display = 'none';
+                document.getElementById("telaCadastro").style.display = "block";
+                document.getElementById("telaPortaria").style.display = "none";
             }
         }
 
         function salvarCadastro() {
-            const unidade = document.getElementById('inputUnidade').value.trim();
-            const cpf = document.getElementById('inputCpf').value.trim();
-            const telefone = document.getElementById('inputTelefone').value.trim();
+            const unidade = document.getElementById("inputUnidade").value.trim();
+            const cpf = document.getElementById("inputCpf").value.trim();
+            const telefone = document.getElementById("inputTelefone").value.trim();
 
             if (!unidade || !cpf || !telefone) {
                 alert("Por favor, preencha Unidade, CPF e telefone alvo.");
                 return;
             }
 
-            localStorage.setItem('unidadeAlvo', unidade);
-            localStorage.setItem('cpfMorador', cpf);
-            localStorage.setItem('telefonePortariaAlvo', telefone);
+            localStorage.setItem("unidadeAlvo", unidade);
+            localStorage.setItem("cpfMorador", cpf);
+            localStorage.setItem("telefonePortariaAlvo", telefone);
 
             try {
-                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
+                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === "function") {
                     window.AndroidBridge.salvarNumeroNativo(telefone);
                 }
             } catch (e) {
@@ -327,66 +497,78 @@
             verificarEstadoInicial();
         }
 
-        function redefinirConfiguracao() {
+        async function redefinirConfiguracao() {
             if (confirm("Deseja realmente redefinir as configurações? Você precisará cadastrar novamente.")) {
                 if (timerInterval) clearInterval(timerInterval);
-                localStorage.removeItem('unidadeAlvo');
-                localStorage.removeItem('cpfMorador');
-                localStorage.removeItem('telefonePortariaAlvo');
+                await limparBannerMaximo();
+                localStorage.removeItem("unidadeAlvo");
+                localStorage.removeItem("cpfMorador");
+                localStorage.removeItem("telefonePortariaAlvo");
                 window.location.reload();
             }
         }
 
-        function fecharAppCompleto() {
+        async function fecharAppCompleto() {
             if (timerInterval) clearInterval(timerInterval);
+            await limparBannerMaximo();
+
             try {
-                if (window.AndroidBridge && typeof window.AndroidBridge.fecharApp === 'function') {
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+                    await window.Capacitor.Plugins.App.exitApp();
+                    return;
+                }
+                if (window.AndroidBridge && typeof window.AndroidBridge.fecharApp === "function") {
                     window.AndroidBridge.fecharApp();
-                } else {
-                    window.close();
+                    return;
                 }
             } catch (e) {
-                window.location.href = "about:blank";
+                console.log("Erro ao fechar app:", e);
             }
+
+            document.getElementById("telaPortaria").style.display = "none";
+            document.getElementById("telaEncerrada").style.display = "flex";
+            document.getElementById("telaEncerrada").textContent = "Aplicativo Encerrado";
         }
 
         function iniciarTimer(segundos) {
             tempoRestante = segundos;
-            const spanBolinha = document.getElementById('contadorBolinha');
-            const alertaGigante = document.getElementById('alertaGigante');
+            const spanBolinha = document.getElementById("contadorBolinha");
+            const alertaGigante = document.getElementById("alertaGigante");
 
-            alertaGigante.style.display = 'none';
+            alertaGigante.style.display = "none";
             spanBolinha.textContent = tempoRestante + "s";
 
             if (timerInterval) clearInterval(timerInterval);
 
-            timerInterval = setInterval(() => {
+            timerInterval = setInterval(async () => {
                 tempoRestante--;
                 spanBolinha.textContent = tempoRestante + "s";
 
                 if (tempoRestante <= 10 && tempoRestante > 0) {
-                    alertaGigante.style.display = 'block';
+                    alertaGigante.style.display = "block";
                     alertaGigante.textContent = tempoRestante;
                 }
 
                 if (tempoRestante <= 0) {
                     clearInterval(timerInterval);
-                    alertaGigante.style.display = 'none';
-                    document.getElementById('telaPortaria').style.display = 'none';
-                    document.getElementById('telaEncerrada').style.display = 'flex';
+                    await limparBannerMaximo();
+                    alertaGigante.style.display = "none";
+                    document.getElementById("telaPortaria").style.display = "none";
+                    document.getElementById("telaEncerrada").style.display = "flex";
                 }
             }, 1000);
         }
 
         function iniciarEscutaFirebase() {
-            const frameImg = document.getElementById('frameImg');
-            const statusTxt = document.getElementById('statusTxt');
-            const statusDot = document.getElementById('statusDot');
+            const frameImg = document.getElementById("frameImg");
+            const statusTxt = document.getElementById("statusTxt");
+            const statusDot = document.getElementById("statusDot");
 
-            database.ref('camera/stream').on('value', (snapshot) => {
+            database.ref("camera/stream").on("value", (snapshot) => {
                 const data = snapshot.val();
-                if (data && data.imagem) {
-                    frameImg.src = data.imagem;
+                if (data && data.imagem && ehImagemValida(data.imagem)) {
+                    ultimoFrameValido = data.imagem.trim();
+                    frameImg.src = ultimoFrameValido;
                     statusTxt.textContent = "Transmissão Ativa (Ao Vivo)";
                     statusTxt.style.color = "#00ff00";
                     statusDot.className = "status-dot online";
@@ -402,39 +584,43 @@
             });
         }
 
-        function registrarVisitaHistorico(numeroChegando, temChamadaAtiva) {
-            const unidadeAlvo = localStorage.getItem('unidadeAlvo') || "Desconhecida";
-            const cpfMorador = localStorage.getItem('cpfMorador') || "";
+        async function registrarVisitaHistorico(telefoneChegando, temChamadaAtiva) {
+            const tempoDefinido = temChamadaAtiva ? 120 : 60;
+            iniciarTimer(tempoDefinido);
+
+            const unidadeAlvo = localStorage.getItem("unidadeAlvo") || "Desconhecida";
+            const cpfMorador = localStorage.getItem("cpfMorador") || "";
             const agora = new Date();
-            const imagemAtual = document.getElementById('frameImg') ? document.getElementById('frameImg').src : "";
+            const miniaturaLimpa = await buscarMiniaturaNoStream();
 
             const dadosVisita = {
                 unidade: unidadeAlvo,
                 cpf: cpfMorador,
-                numeroTelefone: numeroChegando,
-                data: agora.toLocaleDateString('pt-BR'),
-                hora: agora.toLocaleTimeString('pt-BR'),
-                miniatura: imagemAtual || "",
+                numeroTelefone: telefoneChegando,
+                data: agora.toLocaleDateString("pt-BR"),
+                hora: agora.toLocaleTimeString("pt-BR"),
+                miniatura: miniaturaLimpa,
                 timestamp: Date.now()
             };
 
-            database.ref('historico_chamadas').push(dadosVisita)
+            database.ref("historico_chamadas").push(dadosVisita)
                 .then(() => {
-                    console.log("Histórico e foto da chamada enviados com sucesso!");
+                    console.log("Histórico enviado para Portaria-cam.");
                 })
                 .catch((err) => console.error("Erro ao registrar histórico:", err));
-
-            const tempoDefinido = temChamadaAtiva ? 120 : 60;
-            iniciarTimer(tempoDefinido);
         }
 
-        window.addEventListener('portariaChamando', (e) => {
-            const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('telefonePortariaAlvo') || "Chamada");
+        window.addEventListener("portariaChamando", (e) => {
+            const numDetectado = (e.detail && e.detail.numero)
+                ? e.detail.numero
+                : (localStorage.getItem("telefonePortariaAlvo") || "Chamada");
+            mostrarTelaPortaria();
+            iniciarPersistenciaBanner(numDetectado);
             registrarVisitaHistorico(numDetectado, true);
         });
 
         function onChamadaDetectadaDoNativo(numeroReal) {
-            const evento = new CustomEvent('portariaChamando', { detail: { numero: numeroReal } });
+            const evento = new CustomEvent("portariaChamando", { detail: { numero: numeroReal } });
             window.dispatchEvent(evento);
         }
     </script>
