@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#121212">
-    <title>Portaria - Portaria-cam</title>
+    <title>Portaria</title>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -77,7 +77,6 @@
             cursor: pointer;
             text-transform: uppercase;
             box-shadow: 0 4px 12px rgba(0,255,0,0.3);
-            margin-top: 10px;
         }
 
         .btn-principal:active { transform: scale(0.98); }
@@ -114,7 +113,6 @@
             display: block;
         }
 
-        /* Botão X Flutuante para fechar o app por completo */
         .btn-fechar-x {
             position: absolute;
             top: 10px;
@@ -136,7 +134,6 @@
         }
         .btn-fechar-x:active { transform: scale(0.90); }
 
-        /* Bolinha Lateral Discreta para o Timer */
         .timer-bolinha {
             position: absolute;
             bottom: 12px;
@@ -156,7 +153,6 @@
             z-index: 10;
         }
 
-        /* Alerta Gigante Central nos Últimos 10 Segundos */
         .alerta-gigante {
             position: absolute;
             top: 50%;
@@ -181,7 +177,7 @@
         }
 
         .status-bar {
-            margin-top: 10px;
+            margin-top: 12px;
             font-size: 0.85rem;
             color: #aaa;
             display: flex;
@@ -200,7 +196,16 @@
         }
         .status-dot.online { background-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
 
-        /* Tela Preta de Encerramento */
+        .btn-redefinir {
+            margin-top: 20px;
+            background: none;
+            border: none;
+            color: #ff4757;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
         #telaEncerrada {
             display: none;
             position: fixed;
@@ -220,21 +225,20 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 </head>
 <body>
 
-    <!-- TELA 1: CADASTRO -->
+    <!-- TELA 1: CADASTRO INICIAL -->
     <div id="telaCadastro" class="card">
         <h2>Configuração da Portaria</h2>
         
         <label for="inputUnidade">Número da Unidade:</label>
         <input type="text" id="inputUnidade" placeholder="Ex: Unidade 101">
 
-        <label for="inputCpf">CPF do Morador:</label>
+        <label for="inputCpf">CPF:</label>
         <input type="text" id="inputCpf" placeholder="Ex: 000.000.000-00">
 
-        <label for="inputTelefone">Telefone da Portaria (Alvo):</label>
+        <label for="inputTelefone">Número de Telefone Alvo:</label>
         <input type="tel" id="inputTelefone" placeholder="Ex: 084988040811">
 
         <button class="btn-principal" onclick="salvarCadastro()">Salvar e Entrar</button>
@@ -242,18 +246,13 @@
 
     <!-- TELA 2: PORTARIA AO VIVO -->
     <div id="telaPortaria">
-        <!-- Botão X Visível para fechar o app -->
         <button class="btn-fechar-x" onclick="fecharAppCompleto()">✕</button>
 
-        <div class="info-unidade" id="txtIdentificacaoUnidade">Unidade 101 — Monitor</div>
+        <div class="info-unidade" id="txtIdentificacaoUnidade">Unidade 101 — Ouvindo Portaria</div>
 
         <div class="video-wrapper">
             <img id="frameImg" src="" alt="Aguardando sinal da câmera...">
-            
-            <!-- Bolinha Lateral com o Timer -->
             <div class="timer-bolinha" id="contadorBolinha">60s</div>
-
-            <!-- Alerta Gigante Central (Ativado nos últimos 10s) -->
             <div class="alerta-gigante" id="alertaGigante">10</div>
         </div>
 
@@ -261,13 +260,14 @@
             <div id="statusDot" class="status-dot"></div>
             <span id="statusTxt" style="color: #eccc68;">Aguardando sinal da câmera...</span>
         </div>
+
+        <button class="btn-redefinir" onclick="redefinirConfiguracao()">⚙️ Redefinir Configurações</button>
     </div>
 
     <!-- TELA PRETA DE ENCERRAMENTO -->
     <div id="telaEncerrada">Vídeo encerrado</div>
 
     <script>
-        // CONFIGURAÇÃO OFICIAL: Projeto Portaria-cam
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
             databaseURL: "https://portaria-cam-default-rtdb.firebaseio.com"
@@ -279,137 +279,23 @@
         const database = firebase.database();
 
         let timerInterval = null;
-        let notificacaoRenovacaoInterval = null;
-        let tempoRestante = 60; // Padrão de visualização livre
-
-        // Tempo que cada banner fica reforçado/ativo na tela (em segundos)
-        const DURACAO_BANNER_SEGUNDOS = 25;
+        let tempoRestante = 60;
 
         window.addEventListener('DOMContentLoaded', () => {
-            prepararNotificacoes();
             verificarEstadoInicial();
         });
-
-        async function prepararNotificacoes() {
-            try {
-                const localNotif = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
-                if (localNotif) {
-                    if (typeof localNotif.createChannel === 'function') {
-                        await localNotif.createChannel({
-                            id: 'portaria_chamada_canal',
-                            name: 'Chamadas da Portaria',
-                            description: 'Alerta de chamada da portaria para abrir o monitor',
-                            importance: 5,
-                            visibility: 1
-                        });
-                    }
-                    if (typeof localNotif.requestPermissions === 'function') {
-                        await localNotif.requestPermissions();
-                    }
-                    if (typeof localNotif.addListener === 'function') {
-                        localNotif.addListener('localNotificationActionPerformed', () => {
-                            mostrarTelaPortaria();
-                        });
-                    }
-                    return;
-                }
-            } catch (e) {
-                console.log("Notificação nativa indisponível no momento:", e);
-            }
-
-            if ("Notification" in window && Notification.permission === "default") {
-                Notification.requestPermission().catch(() => {});
-            }
-        }
-
-        function mostrarTelaPortaria() {
-            const unidadeSalva = localStorage.getItem('unidadeAlvo');
-            const telSalvo = localStorage.getItem('telefonePortariaAlvo');
-            if (!unidadeSalva || !telSalvo) return;
-
-            document.getElementById('telaCadastro').style.display = 'none';
-            document.getElementById('telaEncerrada').style.display = 'none';
-            document.getElementById('telaPortaria').style.display = 'flex';
-            document.getElementById('txtIdentificacaoUnidade').textContent = `${unidadeSalva} — Monitor`;
-            iniciarEscutaFirebase();
-        }
-
-        async function dispararBannerChamada(numeroChamada) {
-            const unidade = localStorage.getItem('unidadeAlvo') || "Unidade";
-            const titulo = "Portaria — Chamada Identificada";
-            const corpo = `${unidade} • Origem: ${numeroChamada} • Toque para abrir o vídeo`;
-
-            try {
-                const localNotif = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
-                if (localNotif && typeof localNotif.schedule === 'function') {
-                    await localNotif.schedule({
-                        notifications: [{
-                            id: 1001,
-                            title: titulo,
-                            body: corpo,
-                            channelId: 'portaria_chamada_canal',
-                            autoCancel: false,
-                            ongoing: true,
-                            extra: { numero: numeroChamada }
-                        }]
-                    });
-                    return;
-                }
-            } catch (e) {
-                console.log("Erro ao exibir banner nativo:", e);
-            }
-
-            if ("Notification" in window && Notification.permission === "granted") {
-                const notif = new Notification(titulo, {
-                    body: corpo,
-                    tag: "portaria-chamada-ativa",
-                    renotify: true,
-                    requireInteraction: true
-                });
-                notif.onclick = () => {
-                    window.focus();
-                    mostrarTelaPortaria();
-                    notif.close();
-                };
-            }
-        }
-
-        function iniciarPersistenciaBanner(numeroChamada) {
-            if (notificacaoRenovacaoInterval) clearInterval(notificacaoRenovacaoInterval);
-            dispararBannerChamada(numeroChamada);
-
-            let ciclos = 0;
-            const maxCiclos = 4; // Mantém o banner reforçado por até ~100s (25s x 4)
-            notificacaoRenovacaoInterval = setInterval(() => {
-                ciclos++;
-                if (ciclos >= maxCiclos) {
-                    clearInterval(notificacaoRenovacaoInterval);
-                    return;
-                }
-                dispararBannerChamada(numeroChamada);
-            }, DURACAO_BANNER_SEGUNDOS * 1000);
-        }
-
-        async function limparBannerChamada() {
-            if (notificacaoRenovacaoInterval) {
-                clearInterval(notificacaoRenovacaoInterval);
-                notificacaoRenovacaoInterval = null;
-            }
-            try {
-                const localNotif = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
-                if (localNotif && typeof localNotif.cancel === 'function') {
-                    await localNotif.cancel({ notifications: [{ id: 1001 }] });
-                }
-            } catch (e) {}
-        }
 
         function verificarEstadoInicial() {
             const unidadeSalva = localStorage.getItem('unidadeAlvo');
             const telSalvo = localStorage.getItem('telefonePortariaAlvo');
 
             if (unidadeSalva && telSalvo) {
-                mostrarTelaPortaria();
+                document.getElementById('telaCadastro').style.display = 'none';
+                document.getElementById('telaPortaria').style.display = 'flex';
+                document.getElementById('txtIdentificacaoUnidade').textContent = `${unidadeSalva} — Ouvindo Portaria`;
+                
                 registrarVisitaHistorico(telSalvo, false);
+                iniciarEscutaFirebase();
             } else {
                 document.getElementById('telaCadastro').style.display = 'block';
                 document.getElementById('telaPortaria').style.display = 'none';
@@ -422,7 +308,7 @@
             const telefone = document.getElementById('inputTelefone').value.trim();
 
             if (!unidade || !cpf || !telefone) {
-                alert("Por favor, preencha todos os campos: Unidade, CPF e Telefone.");
+                alert("Por favor, preencha Unidade, CPF e telefone alvo.");
                 return;
             }
 
@@ -430,29 +316,40 @@
             localStorage.setItem('cpfMorador', cpf);
             localStorage.setItem('telefonePortariaAlvo', telefone);
 
+            try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.salvarNumeroNativo === 'function') {
+                    window.AndroidBridge.salvarNumeroNativo(telefone);
+                }
+            } catch (e) {
+                console.log("Bridge nativa não disponível.");
+            }
+
             verificarEstadoInicial();
         }
 
-        // Botão X Definitivo Integrado ao Capacitor para Fechar o APK
-        async function fecharAppCompleto() {
-            if (timerInterval) clearInterval(timerInterval);
-            await limparBannerChamada();
-
-            try {
-                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
-                    await window.Capacitor.Plugins.App.exitApp();
-                    return;
-                }
-            } catch (e) {
-                console.log("Erro ao fechar via Capacitor:", e);
+        function redefinirConfiguracao() {
+            if (confirm("Deseja realmente redefinir as configurações? Você precisará cadastrar novamente.")) {
+                if (timerInterval) clearInterval(timerInterval);
+                localStorage.removeItem('unidadeAlvo');
+                localStorage.removeItem('cpfMorador');
+                localStorage.removeItem('telefonePortariaAlvo');
+                window.location.reload();
             }
-
-            document.getElementById('telaPortaria').style.display = 'none';
-            document.getElementById('telaEncerrada').style.display = 'flex';
-            document.getElementById('telaEncerrada').textContent = "Aplicativo Encerrado";
         }
 
-        // Timer Regressivo com Bolinha Lateral e Alerta Gigante nos últimos 10s
+        function fecharAppCompleto() {
+            if (timerInterval) clearInterval(timerInterval);
+            try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.fecharApp === 'function') {
+                    window.AndroidBridge.fecharApp();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                window.location.href = "about:blank";
+            }
+        }
+
         function iniciarTimer(segundos) {
             tempoRestante = segundos;
             const spanBolinha = document.getElementById('contadorBolinha');
@@ -463,7 +360,7 @@
 
             if (timerInterval) clearInterval(timerInterval);
 
-            timerInterval = setInterval(async () => {
+            timerInterval = setInterval(() => {
                 tempoRestante--;
                 spanBolinha.textContent = tempoRestante + "s";
 
@@ -474,7 +371,6 @@
 
                 if (tempoRestante <= 0) {
                     clearInterval(timerInterval);
-                    await limparBannerChamada();
                     alertaGigante.style.display = 'none';
                     document.getElementById('telaPortaria').style.display = 'none';
                     document.getElementById('telaEncerrada').style.display = 'flex';
@@ -482,33 +378,6 @@
             }, 1000);
         }
 
-        // Envia os dados para o Admin e define o tempo (120s se chamada ativa, 60s se livre)
-        function registrarVisitaHistorico(telefoneChegando, temChamadaAtiva) {
-            const unidadeAlvo = localStorage.getItem('unidadeAlvo') || "Desconhecida";
-            const cpfMorador = localStorage.getItem('cpfMorador') || "";
-            const agora = new Date();
-            const frameImg = document.getElementById('frameImg');
-            const imagemAtual = frameImg ? frameImg.src : "";
-
-            const dadosVisita = {
-                unidade: unidadeAlvo,
-                cpf: cpfMorador,
-                numeroTelefone: telefoneChegando,
-                data: agora.toLocaleDateString('pt-BR'),
-                hora: agora.toLocaleTimeString('pt-BR'),
-                miniatura: imagemAtual,
-                timestamp: Date.now()
-            };
-
-            database.ref('historico_chamadas').push(dadosVisita).catch((err) => {
-                console.error("Erro ao registrar histórico:", err);
-            });
-
-            const tempoDefinido = temChamadaAtiva ? 120 : 60;
-            iniciarTimer(tempoDefinido);
-        }
-
-        // Escuta Direta do Streaming no Firebase (Portaria-cam)
         function iniciarEscutaFirebase() {
             const frameImg = document.getElementById('frameImg');
             const statusTxt = document.getElementById('statusTxt');
@@ -533,11 +402,34 @@
             });
         }
 
-        // Gatilho externo para quando a chamada chegar via app nativo
+        function registrarVisitaHistorico(numeroChegando, temChamadaAtiva) {
+            const unidadeAlvo = localStorage.getItem('unidadeAlvo') || "Desconhecida";
+            const cpfMorador = localStorage.getItem('cpfMorador') || "";
+            const agora = new Date();
+            const imagemAtual = document.getElementById('frameImg') ? document.getElementById('frameImg').src : "";
+
+            const dadosVisita = {
+                unidade: unidadeAlvo,
+                cpf: cpfMorador,
+                numeroTelefone: numeroChegando,
+                data: agora.toLocaleDateString('pt-BR'),
+                hora: agora.toLocaleTimeString('pt-BR'),
+                miniatura: imagemAtual || "",
+                timestamp: Date.now()
+            };
+
+            database.ref('historico_chamadas').push(dadosVisita)
+                .then(() => {
+                    console.log("Histórico e foto da chamada enviados com sucesso!");
+                })
+                .catch((err) => console.error("Erro ao registrar histórico:", err));
+
+            const tempoDefinido = temChamadaAtiva ? 120 : 60;
+            iniciarTimer(tempoDefinido);
+        }
+
         window.addEventListener('portariaChamando', (e) => {
             const numDetectado = (e.detail && e.detail.numero) ? e.detail.numero : (localStorage.getItem('telefonePortariaAlvo') || "Chamada");
-            mostrarTelaPortaria();
-            iniciarPersistenciaBanner(numDetectado);
             registrarVisitaHistorico(numDetectado, true);
         });
 
