@@ -4,145 +4,260 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#121212">
-    <title>Painel Admin - Histórico</title>
+    <title>Admin — Histórico Portaria-cam</title>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             background-color: #121212;
-            color: #00ffcc;
+            color: #e0e0e0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 16px;
             min-height: 100vh;
-            padding: 20px;
         }
 
-        h2 {
-            font-size: 1.3rem;
-            margin-bottom: 20px;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #00ffcc;
-        }
-
-        .card {
-            width: 100%;
-            max-width: 400px;
+        .topo {
+            max-width: 900px;
+            margin: 0 auto 18px auto;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
             background: #1e1e1e;
+            padding: 14px 16px;
             border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
             border: 1px solid #333;
-            margin-bottom: 15px;
         }
 
-        label {
-            font-size: 0.8rem;
-            color: #aaa;
+        .titulo-area h1 {
+            font-size: 1.15rem;
+            color: #00ffcc;
             text-transform: uppercase;
-            display: block;
-            margin-bottom: 6px;
-            font-weight: bold;
+            letter-spacing: 0.8px;
         }
 
-        .input-group { display: flex; gap: 8px; }
+        .titulo-area p {
+            font-size: 0.8rem;
+            color: #9aa0a6;
+            margin-top: 3px;
+        }
 
-        input {
-            width: 100%;
-            padding: 12px;
+        .controles {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1 1 260px;
+            justify-content: flex-end;
+        }
+
+        .filtro-input {
             background: #121212;
             border: 1px solid #444;
             color: #fff;
-            border-radius: 6px;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        input:focus { border-color: #00ffcc; outline: none; }
-
-        .btn-acao {
-            padding: 0 16px;
-            background: #00ffcc;
-            color: #121212;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-        }
-
-        .secao-titulo {
-            font-size: 0.9rem;
-            color: #aaa;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        #listaVisitas {
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .visita-card {
-            background: #1e1e1e;
+            padding: 9px 12px;
             border-radius: 8px;
-            padding: 12px;
-            border: 1px solid #333;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            font-size: 0.9rem;
+            min-width: 180px;
+            flex: 1;
         }
 
-        .visita-miniatura {
-            width: 60px;
-            height: 60px;
-            border-radius: 6px;
-            object-fit: cover;
+        .filtro-input:focus {
+            outline: none;
+            border-color: #00ffcc;
+        }
+
+        .lista-unidades {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 14px;
+        }
+
+        .card-unidade {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            transition: border-color 0.2s ease, transform 0.15s ease;
+        }
+
+        .card-unidade:active {
+            transform: scale(0.99);
+        }
+
+        .card-unidade:hover {
+            border-color: #00ffcc;
+        }
+
+        /* Miniatura com contador pequeno e legível no canto */
+        .thumb-box {
+            position: relative;
+            width: 84px;
+            height: 84px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            overflow: hidden;
             background: #000;
             border: 1px solid #444;
-            flex-shrink: 0;
+            cursor: pointer;
         }
 
-        .visita-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-        .visita-casa { font-size: 1rem; font-weight: bold; color: #00ffcc; text-transform: uppercase; }
-        .visita-detalhe { font-size: 0.8rem; color: #ccc; }
-        .visita-data { font-size: 0.75rem; color: #888; }
+        .thumb-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
-        .msg-vazio {
+        .sem-foto {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #888;
             text-align: center;
-            color: #eccc68;
-            font-size: 0.9rem;
-            padding: 20px;
-            background: #1e1e1e;
-            border-radius: 8px;
-            border: 1px solid #333;
-            width: 100%;
-            max-width: 400px;
+            padding: 4px;
         }
 
-        .btn-sair {
+        .badge-contador {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #00ffcc;
+            border: 1px solid #00ffcc;
+            border-radius: 999px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1.25;
+            letter-spacing: 0.2px;
+            pointer-events: none;
+        }
+
+        .dados-unidade {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .nome-unidade {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #00ffcc;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .linha-info {
+            font-size: 0.8rem;
+            color: #ccc;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .linha-info span {
+            color: #8b949e;
+        }
+
+        .dica-ampliar {
+            margin-top: 6px;
+            font-size: 0.72rem;
+            color: #00ff00;
+            opacity: 0.9;
+        }
+
+        .vazio {
+            max-width: 900px;
+            margin: 30px auto;
+            text-align: center;
+            color: #9aa0a6;
+            background: #1e1e1e;
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px dashed #3a3a3a;
+        }
+
+        /* Modal para ampliar imagem ao tocar */
+        .modal-ampliar {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-ampliar.aberto {
+            display: flex;
+        }
+
+        .modal-conteudo {
             width: 100%;
-            max-width: 400px;
+            max-width: 520px;
+            background: #1b1b1b;
+            border: 1px solid #444;
+            border-radius: 12px;
             padding: 14px;
+            position: relative;
+        }
+
+        .btn-fechar-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: none;
             background: #ff4757;
             color: #fff;
-            border: none;
-            border-radius: 6px;
+            font-size: 1.1rem;
             font-weight: bold;
-            font-size: 1rem;
             cursor: pointer;
-            text-transform: uppercase;
-            margin-top: auto;
+        }
+
+        .img-ampliada-box {
+            width: 100%;
+            max-height: 62vh;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .img-ampliada-box img {
+            width: 100%;
+            height: auto;
+            max-height: 62vh;
+            object-fit: contain;
+            display: block;
+        }
+
+        .modal-detalhes {
+            font-size: 0.85rem;
+            color: #ddd;
+            line-height: 1.5;
+        }
+
+        .modal-detalhes strong {
+            color: #00ffcc;
         }
     </style>
 
@@ -151,22 +266,33 @@
 </head>
 <body>
 
-    <h2>Painel Admin — Histórico</h2>
-
-    <div class="card">
-        <label for="inputBusca">Pesquisar por Número da Casa:</label>
-        <div class="input-group">
-            <input type="text" id="inputBusca" placeholder="Ex: Casa 08" oninput="filtrarVisitas()">
-            <button class="btn-acao" onclick="filtrarVisitas()">Buscar</button>
+    <div class="topo">
+        <div class="titulo-area">
+            <h1>Admin — Registros por Unidade</h1>
+            <p id="resumoTopo">Conectando ao histórico...</p>
+        </div>
+        <div class="controles">
+            <input
+                type="text"
+                id="filtroBusca"
+                class="filtro-input"
+                placeholder="Buscar unidade, CPF ou telefone..."
+                oninput="renderizarLista()"
+            >
         </div>
     </div>
 
-    <div class="secao-titulo">Últimas Visitas Registradas</div>
-    <div id="listaVisitas">
-        <div class="msg-vazio">Carregando registros...</div>
-    </div>
+    <div id="listaUnidades" class="lista-unidades"></div>
+    <div id="estadoVazio" class="vazio" style="display: none;">Nenhum registro encontrado no histórico.</div>
 
-    <button class="btn-sair" onclick="sairPainel()">Sair do Painel</button>
+    <!-- Modal de Ampliação ao Tocar na Imagem -->
+    <div id="modalAmpliar" class="modal-ampliar" onclick="fecharModalSeFundo(event)">
+        <div class="modal-conteudo">
+            <button class="btn-fechar-modal" onclick="fecharModal()">✕</button>
+            <div class="img-ampliada-box" id="boxImgAmpliada"></div>
+            <div class="modal-detalhes" id="detalhesModal"></div>
+        </div>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -179,83 +305,139 @@
         }
         const database = firebase.database();
 
-        let todosRegistrosCache = [];
+        let registrosBrutos = [];
+        let gruposAtuais = [];
 
-        window.addEventListener('DOMContentLoaded', () => {
-            ouvirHistoricoAdmin();
-        });
+        function ehImagemValida(src) {
+            if (!src || typeof src !== "string") return false;
+            const limpa = src.trim();
+            if (!limpa || limpa === "http://localhost/" || limpa.startsWith("http://localhost")) return false;
+            return limpa.startsWith("data:image/") || limpa.startsWith("https://");
+        }
 
-        function ouvirHistoricoAdmin() {
-            const container = document.getElementById('listaVisitas');
+        function agruparPorUnidade(lista) {
+            const mapa = {};
+            const ordenados = [...lista].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-            database.ref('historico_chamadas').on('value', (snapshot) => {
-                todosRegistrosCache = [];
-                
-                if (snapshot.exists()) {
-                    snapshot.forEach((childSnap) => {
-                        const item = childSnap.val();
-                        item.id = childSnap.key;
-                        todosRegistrosCache.push(item);
-                    });
+            ordenados.forEach((item) => {
+                const chaveUnidade = (item.unidade || item.casa || "Sem Unidade").toString().trim();
 
-                    todosRegistrosCache.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-                    renderizarLista(todosRegistrosCache);
+                if (!mapa[chaveUnidade]) {
+                    mapa[chaveUnidade] = {
+                        unidade: chaveUnidade,
+                        ultimoRegistro: item,
+                        miniaturaValida: ehImagemValida(item.miniatura) ? item.miniatura.trim() : "",
+                        totalRegistros: 1,
+                        todos: [item]
+                    };
                 } else {
-                    container.innerHTML = `<div class="msg-vazio">⚠️ Nenhum registro de visita no momento.</div>`;
+                    mapa[chaveUnidade].totalRegistros += 1;
+                    mapa[chaveUnidade].todos.push(item);
+
+                    if (!mapa[chaveUnidade].miniaturaValida && ehImagemValida(item.miniatura)) {
+                        mapa[chaveUnidade].miniaturaValida = item.miniatura.trim();
+                    }
                 }
             });
+
+            return Object.values(mapa);
         }
 
-        function renderizarLista(lista) {
-            const container = document.getElementById('listaVisitas');
-            container.innerHTML = "";
+        function renderizarLista() {
+            const termo = (document.getElementById("filtroBusca").value || "").trim().toLowerCase();
+            const container = document.getElementById("listaUnidades");
+            const vazio = document.getElementById("estadoVazio");
+            const resumo = document.getElementById("resumoTopo");
 
-            if (lista.length === 0) {
-                container.innerHTML = `<div class="msg-vazio">Nenhum resultado encontrado.</div>`;
+            const grupos = agruparPorUnidade(registrosBrutos).filter((g) => {
+                if (!termo) return true;
+                const ult = g.ultimoRegistro || {};
+                const texto = `${g.unidade} ${ult.cpf || ""} ${ult.numeroTelefone || ""}`.toLowerCase();
+                return texto.includes(termo);
+            });
+
+            gruposAtuais = grupos;
+            resumo.textContent = `${grupos.length} unidade(s) • ${registrosBrutos.length} registro(s) no total`;
+
+            if (grupos.length === 0) {
+                container.innerHTML = "";
+                vazio.style.display = "block";
                 return;
             }
 
-            lista.forEach((visita) => {
-                const card = document.createElement('div');
-                card.className = 'visita-card';
+            vazio.style.display = "none";
 
-                const fotoSrc = visita.miniatura || 'https://placehold.co/60x60/121212/00ffcc?text=Sem+Foto';
+            container.innerHTML = grupos.map((grupo, idx) => {
+                const ult = grupo.ultimoRegistro || {};
+                const conteudoFoto = grupo.miniaturaValida
+                    ? `<img src="${grupo.miniaturaValida}" alt="Foto ${grupo.unidade}">`
+                    : `<div class="sem-foto">Sem foto</div>`;
 
-                card.innerHTML = `
-                    <img src="${fotoSrc}" class="visita-miniatura" alt="Foto">
-                    <div class="visita-info">
-                        <div class="visita-casa">${visita.casa || 'Casa Desconhecida'}</div>
-                        <div class="visita-detalhe">Tel: ${visita.numeroTelefone || 'N/A'}</div>
-                        <div class="visita-data">📅 ${visita.data || ''} às ${visita.hora || ''}</div>
+                return `
+                    <div class="card-unidade" onclick="abrirModal(${idx})">
+                        <div class="thumb-box" title="Toque para ampliar">
+                            ${conteudoFoto}
+                            <span class="badge-contador">${grupo.totalRegistros}</span>
+                        </div>
+                        <div class="dados-unidade">
+                            <div class="nome-unidade">${grupo.unidade}</div>
+                            <div class="linha-info"><span>Tel:</span> ${ult.numeroTelefone || "-"}</div>
+                            <div class="linha-info"><span>CPF:</span> ${ult.cpf || "-"}</div>
+                            <div class="linha-info"><span>Último:</span> ${ult.data || "-"} ${ult.hora || ""}</div>
+                            <div class="dica-ampliar">Toque para ampliar</div>
+                        </div>
                     </div>
                 `;
-                container.appendChild(card);
-            });
+            }).join("");
         }
 
-        function filtrarVisitas() {
-            const termo = document.getElementById('inputBusca').value.trim().toLowerCase();
+        function abrirModal(indice) {
+            const grupo = gruposAtuais[indice];
+            if (!grupo) return;
 
-            if (!termo) {
-                renderizarLista(todosRegistrosCache);
-                return;
+            const ult = grupo.ultimoRegistro || {};
+            const boxImg = document.getElementById("boxImgAmpliada");
+            const detalhes = document.getElementById("detalhesModal");
+
+            boxImg.innerHTML = grupo.miniaturaValida
+                ? `<img src="${grupo.miniaturaValida}" alt="Imagem ampliada ${grupo.unidade}">`
+                : `<div class="sem-foto" style="padding: 30px; font-size: 0.95rem;">Nenhuma imagem disponível para esta unidade.</div>`;
+
+            detalhes.innerHTML = `
+                <div><strong>Unidade:</strong> ${grupo.unidade} (${grupo.totalRegistros} registro(s))</div>
+                <div><strong>Telefone:</strong> ${ult.numeroTelefone || "-"}</div>
+                <div><strong>CPF:</strong> ${ult.cpf || "-"}</div>
+                <div><strong>Data / Hora:</strong> ${ult.data || "-"} às ${ult.hora || "-"}</div>
+            `;
+
+            document.getElementById("modalAmpliar").classList.add("aberto");
+        }
+
+        function fecharModal() {
+            document.getElementById("modalAmpliar").classList.remove("aberto");
+        }
+
+        function fecharModalSeFundo(evento) {
+            if (evento.target && evento.target.id === "modalAmpliar") {
+                fecharModal();
             }
-
-            const filtrados = todosRegistrosCache.filter(item => {
-                const casa = (item.casa || "").toLowerCase();
-                const tel = (item.numeroTelefone || "").toLowerCase();
-                return casa.includes(termo) || tel.includes(termo);
-            });
-
-            renderizarLista(filtrados);
         }
 
-        function sairPainel() {
-            if (confirm("Deseja sair do painel?")) {
-                window.location.reload();
+        database.ref("historico_chamadas").on("value", (snapshot) => {
+            const val = snapshot.val();
+            if (!val) {
+                registrosBrutos = [];
+            } else {
+                registrosBrutos = Object.keys(val).map((id) => ({
+                    id,
+                    ...val[id]
+                }));
             }
-        }
+            renderizarLista();
+        }, (err) => {
+            document.getElementById("resumoTopo").textContent = "Erro ao carregar histórico do Firebase.";
+            console.error(err);
+        });
     </script>
 </body>
 </html>
