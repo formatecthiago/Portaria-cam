@@ -268,6 +268,8 @@
     <!-- TELA PRETA DE ENCERRAMENTO -->
     <div id="telaEncerrada">Vídeo encerrado</div>
 
+    <canvas id="canvasFlexRgb565" style="display:none;"></canvas>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCyOvvGYTCe6EBb8BC20-oHW6ClWYJZFiM",
@@ -296,6 +298,62 @@
             const limpa = src.trim();
             if (!limpa || limpa === "http://localhost/" || limpa.startsWith("http://localhost")) return false;
             return limpa.startsWith("data:image/") || limpa.startsWith("https://");
+        }
+
+        function converterRgb565ParaDataUrl(data) {
+            if (!data || data.formato !== "rgb565" || !data.dados || typeof data.dados !== "string") {
+                return "";
+            }
+            const w = parseInt(data.w, 10);
+            const h = parseInt(data.h, 10);
+            if (!w || !h || w <= 0 || h <= 0) return "";
+
+            const binStr = atob(data.dados.trim());
+            const totalBytes = binStr.length;
+            const bytes = new Uint8Array(totalBytes);
+            for (let i = 0; i < totalBytes; i++) {
+                bytes[i] = binStr.charCodeAt(i);
+            }
+
+            const totalPixels = Math.min(w * h, Math.floor(totalBytes / 2));
+            if (totalPixels <= 0) return "";
+
+            const canvas = document.getElementById("canvasFlexRgb565");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            const imgData = ctx.createImageData(w, h);
+            const out = imgData.data;
+
+            for (let i = 0; i < totalPixels; i++) {
+                const b0 = bytes[i * 2];
+                const b1 = bytes[i * 2 + 1];
+                const p = (b0 << 8) | b1;
+
+                const r = ((p >> 11) & 0x1f) * 255 / 31;
+                const g = ((p >> 5) & 0x3f) * 255 / 63;
+                const b = (p & 0x1f) * 255 / 31;
+
+                const o = i * 4;
+                out[o] = r;
+                out[o + 1] = g;
+                out[o + 2] = b;
+                out[o + 3] = 255;
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            return canvas.toDataURL("image/jpeg", 0.8);
+        }
+
+        function resolverImagemDoNo(data) {
+            if (!data) return "";
+            if (data.imagem && ehImagemValida(data.imagem)) {
+                return data.imagem.trim();
+            }
+            if (data.formato === "rgb565") {
+                return converterRgb565ParaDataUrl(data);
+            }
+            return "";
         }
 
         function obterMiniaturaAtual() {
@@ -327,9 +385,9 @@
 
                 database.ref("camera/stream").once("value", (snapshot) => {
                     if (resolvido) return;
-                    const data = snapshot.val();
-                    if (data && data.imagem && ehImagemValida(data.imagem)) {
-                        ultimoFrameValido = data.imagem.trim();
+                    const resolvida = resolverImagemDoNo(snapshot.val());
+                    if (resolvida && ehImagemValida(resolvida)) {
+                        ultimoFrameValido = resolvida;
                         resolvido = true;
                         clearTimeout(timeout);
                         resolve(ultimoFrameValido);
@@ -565,9 +623,9 @@
             const statusDot = document.getElementById("statusDot");
 
             database.ref("camera/stream").on("value", (snapshot) => {
-                const data = snapshot.val();
-                if (data && data.imagem && ehImagemValida(data.imagem)) {
-                    ultimoFrameValido = data.imagem.trim();
+                const resolvida = resolverImagemDoNo(snapshot.val());
+                if (resolvida && ehImagemValida(resolvida)) {
+                    ultimoFrameValido = resolvida;
                     frameImg.src = ultimoFrameValido;
                     statusTxt.textContent = "Transmissão Ativa (Ao Vivo)";
                     statusTxt.style.color = "#00ff00";
