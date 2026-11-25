@@ -81,7 +81,6 @@
 
         .btn-principal:active { transform: scale(0.98); }
 
-        /* Tela 2: Visualização da Portaria */
         #telaPortaria { display: none; width: 100%; max-width: 400px; flex-direction: column; align-items: center; position: relative; }
         
         .info-unidade {
@@ -229,7 +228,6 @@
 </head>
 <body>
 
-    <!-- TELA 1: CADASTRO INICIAL -->
     <div id="telaCadastro" class="card">
         <h2>Configuração da Portaria</h2>
         
@@ -245,7 +243,6 @@
         <button class="btn-principal" onclick="salvarCadastro()">Salvar e Entrar</button>
     </div>
 
-    <!-- TELA 2: PORTARIA AO VIVO -->
     <div id="telaPortaria">
         <button class="btn-fechar-x" onclick="fecharAppCompleto()">✕</button>
 
@@ -265,7 +262,6 @@
         <button class="btn-redefinir" onclick="redefinirConfiguracao()">⚙️ Redefinir Configurações</button>
     </div>
 
-    <!-- TELA PRETA DE ENCERRAMENTO -->
     <div id="telaEncerrada">Vídeo encerrado</div>
 
     <canvas id="canvasFlexRgb565" style="display:none;"></canvas>
@@ -300,15 +296,53 @@
             return limpa.startsWith("data:image/") || limpa.startsWith("https://");
         }
 
-        function converterRgb565ParaDataUrl(data) {
-            if (!data || data.formato !== "rgb565" || !data.dados || typeof data.dados !== "string") {
-                return "";
-            }
-            const w = parseInt(data.w, 10);
-            const h = parseInt(data.h, 10);
-            if (!w || !h || w <= 0 || h <= 0) return "";
+        function montarBase64DeBlocos(data) {
+            if (!data || !data.meta || !data.blocos) return null;
+            const meta = data.meta;
+            if (meta.formato !== "rgb565") return null;
 
-            const binStr = atob(data.dados.trim());
+            const w = parseInt(meta.w, 10);
+            const h = parseInt(meta.h, 10);
+            const totalBlocos = parseInt(meta.blocos, 10);
+            if (!w || !h || !totalBlocos || w <= 0 || h <= 0 || totalBlocos <= 0) return null;
+
+            const listaBlocos = Array.isArray(data.blocos)
+                ? data.blocos
+                : Object.keys(data.blocos)
+                    .sort((a, b) => Number(a) - Number(b))
+                    .map((k) => data.blocos[k]);
+
+            if (listaBlocos.length < totalBlocos) return null;
+
+            let b64Concat = "";
+            for (let i = 0; i < totalBlocos; i++) {
+                const blk = listaBlocos[i];
+                if (!blk || typeof blk.d !== "string" || blk.d.length === 0) return null;
+                b64Concat += blk.d.trim();
+            }
+
+            return { w, h, b64: b64Concat };
+        }
+
+        function converterRgb565ParaDataUrl(data) {
+            let w = 0;
+            let h = 0;
+            let b64Str = "";
+
+            const deBlocos = montarBase64DeBlocos(data);
+            if (deBlocos) {
+                w = deBlocos.w;
+                h = deBlocos.h;
+                b64Str = deBlocos.b64;
+            } else if (data && data.formato === "rgb565" && typeof data.dados === "string") {
+                w = parseInt(data.w, 10);
+                h = parseInt(data.h, 10);
+                b64Str = data.dados.trim();
+            }
+
+            if (!w || !h || w <= 0 || h <= 0 || !b64Str) return "";
+
+            const binStr = atob(b64Str);
             const totalBytes = binStr.length;
             const bytes = new Uint8Array(totalBytes);
             for (let i = 0; i < totalBytes; i++) {
@@ -342,7 +376,7 @@
             }
 
             ctx.putImageData(imgData, 0, 0);
-            return canvas.toDataURL("image/jpeg", 0.8);
+            return canvas.toDataURL("image/jpeg", 0.85);
         }
 
         function resolverImagemDoNo(data) {
@@ -350,7 +384,7 @@
             if (data.imagem && ehImagemValida(data.imagem)) {
                 return data.imagem.trim();
             }
-            if (data.formato === "rgb565") {
+            if ((data.meta && data.meta.formato === "rgb565") || data.formato === "rgb565") {
                 return converterRgb565ParaDataUrl(data);
             }
             return "";
