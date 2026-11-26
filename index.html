@@ -281,6 +281,8 @@
         let notificacaoRenovacaoInterval = null;
         let tempoRestante = 60;
         let ultimoFrameValido = "";
+        let ultimoFrameId = null;
+        let renderEmAndamento = false;
 
         const DURACAO_BANNER_SEGUNDOS = 25;
 
@@ -294,6 +296,12 @@
             const limpa = src.trim();
             if (!limpa || limpa === "http://localhost/" || limpa.startsWith("http://localhost")) return false;
             return limpa.startsWith("data:image/") || limpa.startsWith("https://");
+        }
+
+        function extrairAlvoStream(data) {
+            if (!data || typeof data !== "object") return null;
+            if (data.latest && typeof data.latest === "object") return data.latest;
+            return data;
         }
 
         function montarBase64DeBlocos(data) {
@@ -324,20 +332,20 @@
             return { w, h, b64: b64Concat };
         }
 
-        function converterRgb565ParaDataUrl(data) {
+        function converterRgb565ParaDataUrl(alvo) {
             let w = 0;
             let h = 0;
             let b64Str = "";
 
-            const deBlocos = montarBase64DeBlocos(data);
+            const deBlocos = montarBase64DeBlocos(alvo);
             if (deBlocos) {
                 w = deBlocos.w;
                 h = deBlocos.h;
                 b64Str = deBlocos.b64;
-            } else if (data && data.formato === "rgb565" && typeof data.dados === "string") {
-                w = parseInt(data.w, 10);
-                h = parseInt(data.h, 10);
-                b64Str = data.dados.trim();
+            } else if (alvo && alvo.formato === "rgb565" && typeof alvo.dados === "string") {
+                w = parseInt(alvo.w, 10);
+                h = parseInt(alvo.h, 10);
+                b64Str = alvo.dados.trim();
             }
 
             if (!w || !h || w <= 0 || h <= 0 || !b64Str) return "";
@@ -355,7 +363,7 @@
             const canvas = document.getElementById("canvasFlexRgb565");
             canvas.width = w;
             canvas.height = h;
-            const ctx = canvas.getContext("2d");
+            const ctx = canvas.getContext("2d", { willReadFrequently: false });
             const imgData = ctx.createImageData(w, h);
             const out = imgData.data;
 
@@ -376,16 +384,17 @@
             }
 
             ctx.putImageData(imgData, 0, 0);
-            return canvas.toDataURL("image/jpeg", 0.85);
+            return canvas.toDataURL("image/jpeg", 0.75);
         }
 
         function resolverImagemDoNo(data) {
-            if (!data) return "";
-            if (data.imagem && ehImagemValida(data.imagem)) {
-                return data.imagem.trim();
+            const alvo = extrairAlvoStream(data);
+            if (!alvo) return "";
+            if (alvo.imagem && ehImagemValida(alvo.imagem)) {
+                return alvo.imagem.trim();
             }
-            if ((data.meta && data.meta.formato === "rgb565") || data.formato === "rgb565") {
-                return converterRgb565ParaDataUrl(data);
+            if ((alvo.meta && alvo.meta.formato === "rgb565") || alvo.formato === "rgb565") {
+                return converterRgb565ParaDataUrl(alvo);
             }
             return "";
         }
@@ -656,20 +665,40 @@
             const statusTxt = document.getElementById("statusTxt");
             const statusDot = document.getElementById("statusDot");
 
+            database.ref("camera/stream").off();
             database.ref("camera/stream").on("value", (snapshot) => {
-                const resolvida = resolverImagemDoNo(snapshot.val());
-                if (resolvida && ehImagemValida(resolvida)) {
-                    ultimoFrameValido = resolvida;
-                    frameImg.src = ultimoFrameValido;
-                    statusTxt.textContent = "Transmissão Ativa (Ao Vivo)";
-                    statusTxt.style.color = "#00ff00";
-                    statusDot.className = "status-dot online";
-                } else {
-                    statusTxt.textContent = "Aguardando sinal da câmera...";
-                    statusTxt.style.color = "#eccc68";
-                    statusDot.className = "status-dot";
+                if (renderEmAndamento) return;
+
+                const raw = snapshot.val();
+                const alvo = extrairAlvoStream(raw);
+                const frameId = alvo && (alvo.frame !== undefined ? `${alvo.frame}_${alvo.ts || ""}` : (alvo.ts || null));
+
+                if (frameId && frameId === ultimoFrameId && ehImagemValida(ultimoFrameValido)) {
+                    return;
                 }
+
+                renderEmAndamento = true;
+                requestAnimationFrame(() => {
+                    try {
+                        const resolvida = resolverImagemDoNo(raw);
+                        if (resolvida && ehImagemValida(resolvida)) {
+                            ultimoFrameId = frameId || Date.now();
+                            ultimoFrameValido = resolvida;
+                            frameImg.src = ultimoFrameValido;
+                            statusTxt.textContent = "Transmissão Ativa (Ao Vivo)";
+                            statusTxt.style.color = "#00ff00";
+                            statusDot.className = "status-dot online";
+                        } else if (!ehImagemValida(ultimoFrameValido)) {
+                            statusTxt.textContent = "Aguardando sinal da câmera...";
+                            statusTxt.style.color = "#eccc68";
+                            statusDot.className = "status-dot";
+                        }
+                    } finally {
+                        renderEmAndamento = false;
+                    }
+                });
             }, (error) => {
+                renderEmAndamento = false;
                 statusTxt.textContent = "Erro ao conectar ao stream";
                 statusTxt.style.color = "#ff4757";
                 statusDot.className = "status-dot";
